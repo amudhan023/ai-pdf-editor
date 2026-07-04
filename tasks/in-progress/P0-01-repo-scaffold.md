@@ -1,3 +1,4 @@
+**Owner:** claude-code (session 0990) · **Branch:** task/P0-01-repo-scaffold · **Claimed:** 6fee6ab
 # P0-01 — Repository Scaffold & Context System
 
 **Epic:** E1 · **Primary package:** repo root `[INTEGRATION]` · **Complexity:** M · **Priority:** Critical
