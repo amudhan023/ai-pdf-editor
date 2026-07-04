@@ -1,0 +1,19 @@
+name: Bench
+
+# Stub, manual-trigger only. Real implementation lands with task P0-08
+# (fixtures/bench harness) — this exists now so the workflow is registered
+# and the interface (workflow_dispatch, no automatic triggers) is stable
+# ahead of that task, matching how Scripts/codegen.sh was stubbed for P0-02.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bench-stub:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Not yet implemented
+        run: |
+          echo "Benchmark harness not yet implemented — reserved for task P0-08."
+          exit 0

@@ -235,6 +235,12 @@ Full bootstrap:             Scripts/bootstrap.sh
 Benchmarks:                 Scripts/bench.sh <suite>
 Corpus integrity suite:     Scripts/corpus-roundtrip.sh
 Regenerate DTOs:            Scripts/codegen.sh
+PII/secret scan (Fixtures): Scripts/scan-fixtures-pii.sh
+CI (every PR, required):    .github/workflows/ci.yml — same verify.sh per
+                            changed package + SwiftLint/PII-scan/codegen-
+                            drift; full matrix on push to main or any
+                            *API/Schemas/ touch. Merge is blocked until
+                            the `ci-status` check is green.
 Pick work:                  tasks/backlog/<phase>/ (deps must be in done/)
 Branch:                     task/<ID>-<slug>
 Frozen (ADR to change):     Packages/*API/, Schemas/, this file
