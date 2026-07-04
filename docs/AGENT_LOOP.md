@@ -12,7 +12,7 @@ This document defines **how agents run continuously**: the per-task loop, the ga
 
 ## 1. The Loop
 
-One iteration = one task, from selection to merge. An agent session runs iterations until a stop condition (§8) fires. **Task-to-task continuation is the default, not something to ask permission for**: once a PR merges and `main` is synced, the agent moves straight to the next SELECT without waiting for a human prompt. The only things that pause the loop are the §8 Stop Conditions and the §9 Escalation table — ordinary merge waiting is not one of them (see Step 8b).
+One iteration = one task, from selection to merge. An agent session runs iterations until a stop condition (§8) fires. **Task-to-task continuation is the default, not something to ask permission for**: once a PR merges and `main` is synced, the agent moves straight to the next SELECT without waiting for a human prompt — this holds across the *whole* backlog, not just one task, unless a §8 Stop Condition or §9 Escalation actually fires. The only things that pause the loop are: the §8 Stop Conditions, the §9 Escalation table, Step 8a's review-required carve-out (`[INTEGRATION]`/security-touching/API-schema PRs, or anything touching `CLAUDE.md`/this file), and Step 8a's own 5-attempt CI-fix-and-retry-merge cap. Ordinary merge waiting is not one of them (see Step 8a/8b).
 
 ```mermaid
 stateDiagram-v2
@@ -93,7 +93,7 @@ G1 mechanical + G2 security + G3 performance + G4 architecture, as applicable to
 **8a — Poll CI, then merge if eligible.** Rebase on `main`, re-run `verify.sh` post-rebase, open (or update) the PR with the CLAUDE.md §13 checklist filled in. This repo has **no platform-enforced branch protection** (GitHub Free doesn't allow it on private repos — `tasks/escalations/E-003-branch-protection-needs-paid-plan.md`), so nothing on GitHub's side stops a premature merge; the agent's own check of `ci-status` *is* the gate. Poll on a **~5 minute cadence** (don't busy-loop), checking `gh pr checks <n>` (or equivalent) each time:
   - **`ci-status` green, and the PR is *not* `[INTEGRATION]`/security-touching/`*API`/`Schemas/`, and it doesn't change `CLAUDE.md` or this file:** merge it now, autonomously. This is standing authorization for every ordinary PR, not a one-off ask — go to 8c immediately after.
   - **`ci-status` green, but the PR *is* `[INTEGRATION]`/security-touching/`*API`/`Schemas/`, or it changes `CLAUDE.md` or `docs/AGENT_LOOP.md`:** do not merge regardless of CI. The latter two are a fourth review-required category on top of CLAUDE.md §21's three, per §10's "improvement rule" below — process/governance docs review themselves, they don't get to except themselves. Request human review explicitly and proceed to 8b.
-  - **`ci-status` red, or a merge conflict:** never merge on red. This is a Verify/Gate failure, not a merge failure — return to Step 4/6, diagnose, fix, re-push, and re-enter 8a's poll. Counts toward the normal 3-strike rule if it's the same failure repeating. Once the fix resolves it and `ci-status` is green, re-evaluate the first bullet above.
+  - **`ci-status` red, or a merge conflict:** never merge on red. Return to Step 4/6, diagnose, fix, re-push, and re-enter 8a's poll. **This fix-and-retry-merge cycle is capped at 5 attempts** for a given PR — a distinct, tighter counter than Step 4's 3-strike local-verify rule (that one governs the pre-PR build/test loop; this one governs the post-PR "is it mergeable yet" loop, and can span several Step-4/6 excursions before it's exhausted). Attempt 1 is the first red result; each subsequent fix-push-recheck is another attempt. If the 5th attempt is still red: stop, leave the PR open and untouched, write a Journal entry covering what was tried across all 5 attempts and the remaining hypothesis, and wait for human review — do not attempt a 6th time, and do not move on to another backlog task while this PR sits unresolved (that would leave a broken PR unattended, which is worse than pausing). If any attempt resolves it and `ci-status` goes green, re-evaluate the merge-eligibility bullet above immediately — don't keep fixing past green.
   - **PR closed without merging (by a human, e.g. rejecting the change):** stop and escalate (§9) immediately — a human decision was made against the change; don't reopen it, don't retry silently, don't reinterpret it.
 
 **8b — Wait for human review (review-required PRs only).** Only reached for `[INTEGRATION]`/security-touching/`*API`/`Schemas/` PRs. Poll on the same ~5 minute cadence for the review decision:
@@ -183,7 +183,7 @@ Run the continuous-improvement checklist (§10, ~5 minutes), then return to Step
 6. **Frozen-seam necessity:** the task cannot be completed without changing an API package, schema, entitlement, or root doc → escalate, don't improvise.
 7. **Anomaly of understanding:** the codebase materially contradicts CLAUDE.md/ARCHITECTURE.md (e.g., a vault call path without tickets) → assume you're missing context; stop and escalate rather than "fixing" either side.
 
-Note: waiting on CI or a human review (Step 8a/8b's ~5-minute poll cadence) is normal loop operation, not condition 1 — an agent parked in 8a/8b has an unblocked task in flight, it just isn't merged yet. Only escalate out per those steps' own rules (merge rejected, or the same CI failure surviving 3 strikes).
+Note: waiting on CI or a human review (Step 8a/8b's ~5-minute poll cadence) is normal loop operation, not condition 1 — an agent parked in 8a/8b has an unblocked task in flight, it just isn't merged yet. Only escalate out per those steps' own rules (merge rejected, or Step 8a's 5-attempt CI-fix-and-retry-merge cap exhausted).
 
 On any stop: leave the task file in `in-progress/` with a Journal entry stating exactly where things stand and what the next agent (or human) needs to decide.
 
@@ -193,7 +193,7 @@ On any stop: leave the task file in `in-progress/` with a Journal entry stating 
 |---|---|
 | Frozen-seam change needed | Draft ADR: problem, options, recommendation, blast radius |
 | Acceptance criteria ambiguous/contradictory | The specific ambiguity + the interpretation it would pick and why |
-| 3-strike failure | Journal: strategies tried, hypotheses remaining, minimal repro |
+| 3-strike failure (Step 4, pre-PR) or 5-attempt exhaustion (Step 8a, post-PR CI-fix-and-retry-merge) | Journal: strategies tried, hypotheses remaining, minimal repro |
 | Security finding (any severity) or entitlement change | Sev-classified report; for Sev-1, also a stop |
 | ADR-001-class decision gates (e.g., P2-14 memo) | Evidence memo with a recommendation, never a unilateral pivot |
 | Milestone go/no-go | Exit-criteria report with pass/fail per criterion |

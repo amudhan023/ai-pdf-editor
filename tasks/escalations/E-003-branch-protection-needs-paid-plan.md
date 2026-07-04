@@ -1,6 +1,6 @@
 # E-003 — Branch protection unavailable on GitHub Free (private repo)
 
-**Raised by:** P0-02 · **Severity:** DoD gap, not a code defect — CI itself works and is unaffected
+**Raised by:** P0-02 · **Severity:** DoD gap, not a code defect — CI itself works and is unaffected · **Status: RESOLVED BY DECISION (Option C) — do not re-raise**
 
 ## Evidence
 - `gh api repos/amudhan023/ai-pdf-editor/branches/main/protection` (both GET and the intended PUT to configure required status checks) returns:
@@ -16,4 +16,7 @@ Option B: make the repo public — unlocks the same feature for free, but expose
 Option C (current default): skip the hard gate. CI still runs and reports status on every PR; merge discipline is manual (check the Checks tab is green before merging) rather than platform-enforced.
 
 ## After repair
-If Option A or B is chosen: run the `gh api -X PUT ...` command above (or re-derive it — GitHub's API for this may have moved on by the time this is revisited), confirm `gh api repos/amudhan023/ai-pdf-editor/branches/main/protection` returns the configured rule, then check the corresponding line in `tasks/in-progress/P0-02-ci-pipeline.md`'s Definition of Done.
+If Option A or B is chosen: run the `gh api -X PUT ...` command above (or re-derive it — GitHub's API for this may have moved on by the time this is revisited), confirm `gh api repos/amudhan023/ai-pdf-editor/branches/main/protection` returns the configured rule, then check the corresponding line in `tasks/done/P0-02-ci-pipeline.md`'s Definition of Done.
+
+## Resolution
+Human operator explicitly chose **Option C**: skip the hard gate for now, proceed with the rest of the backlog. `ci-status` (the agent's own check before every merge) is the practical gate per `docs/AGENT_LOOP.md` Step 8a / `CLAUDE.md` §21. This escalation is closed by decision, not by a technical fix — don't re-prompt about upgrading the plan or going public unless the human operator raises it again.
