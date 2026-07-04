@@ -1,0 +1,20 @@
+# Package import allowlist - enforced by Scripts/check-boundaries.sh
+# Format: <Package>: <allowed imports besides Foundation/Swift>
+# System frameworks must be listed explicitly per package.
+PDFEngineAPI:
+VaultAPI:
+InferenceAPI:
+Platform: Security LocalAuthentication os OSLog
+PolicyKit: VaultAPI
+AuditLog: os OSLog
+FormKnowledge: PDFEngineAPI VaultAPI
+AutofillEngine: PDFEngineAPI VaultAPI InferenceAPI PolicyKit FormKnowledge
+IngestionPipeline: PDFEngineAPI VaultAPI InferenceAPI
+DocumentSession: PDFEngineAPI Platform SwiftUI AppKit os OSLog
+AutofillSession: AutofillEngine VaultAPI PolicyKit PDFEngineAPI SwiftUI AppKit os OSLog
+IngestionSession: IngestionPipeline VaultAPI PolicyKit SwiftUI AppKit os OSLog
+VaultManagerUI: VaultAPI PolicyKit SwiftUI AppKit os OSLog
+PrivacyDashboard: AuditLog VaultAPI SwiftUI AppKit os OSLog
+DocEngineHost: PDFEngineAPI Platform os OSLog
+InferenceHost: InferenceAPI Platform os OSLog
+VaultStore: VaultAPI PolicyKit Platform Security os OSLog
