@@ -22,13 +22,13 @@
 
 **Article 6 — Native first.** Favor native macOS APIs and platform frameworks over third-party libraries when they can adequately do the job. Third-party code is a liability accepted only for demonstrable, documented gain.
 
-**Article 7 — Minimal dependencies.** Keep dependencies to the proven minimum. Every new dependency requires an ADR (license, supply chain, size, build-vs-buy) and human approval. No dependency that phones home. All dependencies pinned.
+**Article 7 — Minimal dependencies.** Keep dependencies to the proven minimum. Every new dependency requires an ADR (license, supply chain, size, build-vs-buy); once recorded, the change is self-mergeable on green CI without a separate human-approval step (ADR-008). No dependency that phones home. All dependencies pinned.
 
 **Article 8 — Tests and documentation are part of the feature.** Every new feature or behavior change includes its tests and its documentation updates in the same change. Work without them is unfinished, not done-except-for.
 
 **Article 9 — Incremental over rewrite.** Prefer incremental improvements over large rewrites. Rewrites and sweeping migrations happen only as explicitly approved, scheduled work — never as a side effect of another task.
 
-**Article 10 — Architecture changes require record and approval.** No architectural change — new layers, moved responsibilities, changed process boundaries, altered frozen seams (`Packages/*API/`, `Schemas/`), new entitlements — without updating the architecture documentation (ADR + ARCHITECTURE.md) and obtaining human approval *first*.
+**Article 10 — Architecture changes require record and approval.** No architectural change — new layers, moved responsibilities, changed process boundaries, altered frozen seams (`Packages/*API/`, `Schemas/`) — without updating the architecture documentation (ADR + ARCHITECTURE.md) first; once documented, self-mergeable on green CI without a separate human-approval step (ADR-008). **New entitlements are excepted from this relaxation** and always require human approval *first*, no exception — OS-level permission grants carry real-world device/privacy consequences beyond this repo's own velocity. Changes to this Constitution, `CLAUDE.md`, or `docs/AGENT_LOOP.md` are likewise always excepted: they always require human approval, regardless of this article, so this relaxation can never be used to bootstrap a further relaxation of itself.
 
 **Article 11 — Security boundaries are structural.** Vault access is mediated by PolicyTickets; PDF parsing, ML inference, and vault storage remain in their isolated, network-entitlement-free processes; decrypted secrets live in `SecureBytes` and never in logs, telemetry, pasteboards (non-transient), or fixtures. Weakening a boundary "for now" is prohibited in all circumstances.
 
