@@ -12,7 +12,7 @@ This document defines **how agents run continuously**: the per-task loop, the ga
 
 ## 1. The Loop
 
-One iteration = one task, from selection to merge. An agent session runs iterations until a stop condition (§8) fires. **Task-to-task continuation is the default, not something to ask permission for**: once a PR merges and `main` is synced, the agent moves straight to the next SELECT without waiting for a human prompt. The only things that pause the loop are the §8 Stop Conditions and the §9 Escalation table — ordinary merge waiting is not one of them (see Step 8b).
+One iteration = one task, from selection to merge. An agent session runs iterations until a stop condition (§8) fires.
 
 ```mermaid
 stateDiagram-v2
@@ -26,13 +26,9 @@ stateDiagram-v2
     Harden --> Gate: quality pass done
     Gate --> Document: all gates green
     Gate --> Implement: gate failure (counts as a strike)
-    Document --> Wait: PR opened
-    Wait --> Wait: poll every ~5 min
-    Wait --> Complete: merged, CI green
-    Wait --> Implement: CI red / changes requested
-    Wait --> Escalate: merge rejected / PR closed unmerged
-    Complete --> Improve: main synced (git pull)
-    Improve --> Select: next iteration, automatic
+    Document --> Complete: PR merged
+    Complete --> Improve
+    Improve --> Select: next iteration
     Verify --> Escalate: 3 strikes
     Gate --> Escalate: red-line hit / frozen seam needed
     Escalate --> [*]
@@ -89,21 +85,12 @@ G1 mechanical + G2 security + G3 performance + G4 architecture, as applicable to
 - PR description: paste the CLAUDE.md §13 checklist, filled honestly; link the task file; include evidence per acceptance criterion (test names, bench numbers, screenshots).
 
 ### Step 8 — COMPLETE
-
-**8a — Open/merge.** Rebase on `main`, re-run `verify.sh` post-rebase, open (or update) the PR with the CLAUDE.md §13 checklist filled in. If the PR needs human review per §21 (`[INTEGRATION]`, security-touching, or `*API`/`Schemas/` diff), request it. If not, and CI is green, squash-merge. Either way, proceed to 8b — don't block Step 8 waiting synchronously.
-
-**8b — Wait and verify merge.** Poll on a **~5 minute cadence** (don't busy-loop) and check PR/merge state each time (e.g. `gh pr view <n> --json state,mergeStateStatus,statusCheckRollup`):
-  - **Merged, CI green:** go to 8c.
-  - **Open, CI running, or awaiting human review:** wait another ~5 minutes and re-check. There is no timeout for a review-required PR — it waits as long as it takes; that wait is not idle time and is not a stop condition.
-  - **CI red, merge conflict, or changes requested:** this is a Verify/Gate failure, not a merge failure — return to Step 4/6, fix, re-push, and re-enter 8b. Counts toward the normal 3-strike rule if it's the same failure repeating.
-  - **Merge rejected or PR closed unmerged:** stop and escalate (§9) immediately — a human decision was made against the change; don't reopen it, don't retry silently, don't reinterpret it.
-
-**8c — Sync.** Once merged: `git checkout main && git pull` (fast-forward only). If the pull isn't a clean fast-forward, something raced with another agent or a direct push — stop and investigate before continuing; don't force or rebase past it. This synced `main` is what the next iteration's Step 0 SELECT reads from.
-
-**8d — Housekeeping.** On top of the freshly-pulled `main`: move the task file to `done/` (keep the Journal in it), commit. If this task was a milestone's last open item: run the milestone exit-criteria checklist from ROADMAP.md and write `docs/specs/<milestone>-report.md`; milestone reports are **always** escalated to the human for go/no-go (§9) — this is the one event in COMPLETE that does stop the loop.
+- Rebase on `main`, re-run `verify.sh` post-rebase, squash-merge when CI is green.
+- Move the task file to `done/` (keep the Journal in it), commit.
+- If this task was a milestone's last open item: run the milestone exit-criteria checklist from ROADMAP.md and write `docs/specs/<milestone>-report.md`; milestone reports are **always** escalated to the human for go/no-go (§9).
 
 ### Step 9 — IMPROVE, then loop
-Run the continuous-improvement checklist (§10, ~5 minutes), then return to Step 0 **automatically** — no human prompt needed; this transition is the default behavior of the loop, not an exception to it. Start the next iteration with **fresh context** — do not carry the previous task's files in working memory; re-orient from scratch. Long-running agent sessions accumulate stale assumptions; the loop is designed so each iteration is self-contained.
+Run the continuous-improvement checklist (§10, ~5 minutes), then return to Step 0. Start the next iteration with **fresh context** — do not carry the previous task's files in working memory; re-orient from scratch. Long-running agent sessions accumulate stale assumptions; the loop is designed so each iteration is self-contained.
 
 ---
 
@@ -178,8 +165,6 @@ Run the continuous-improvement checklist (§10, ~5 minutes), then return to Step
 5. **Main is red:** never branch new work off a failing main; the only valid task is fixing main.
 6. **Frozen-seam necessity:** the task cannot be completed without changing an API package, schema, entitlement, or root doc → escalate, don't improvise.
 7. **Anomaly of understanding:** the codebase materially contradicts CLAUDE.md/ARCHITECTURE.md (e.g., a vault call path without tickets) → assume you're missing context; stop and escalate rather than "fixing" either side.
-
-Note: waiting on a PR merge (Step 8b's ~5-minute poll cadence) is normal loop operation, not condition 1 — an agent parked in 8b has an unblocked task in flight, it just isn't merged yet. Only escalate out of 8b per its own rules (merge rejected, or the same CI failure surviving 3 strikes).
 
 On any stop: leave the task file in `in-progress/` with a Journal entry stating exactly where things stand and what the next agent (or human) needs to decide.
 

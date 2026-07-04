@@ -1,9 +1,0 @@
-# Binary fixtures and prebuilt libraries use Git LFS (install git-lfs first).
-# Patterns are extension-scoped so text files (READMEs, manifests) stay in git.
-Fixtures/**/*.pdf  filter=lfs diff=lfs merge=lfs -text
-Fixtures/**/*.png  filter=lfs diff=lfs merge=lfs -text
-Fixtures/**/*.jpg  filter=lfs diff=lfs merge=lfs -text
-Fixtures/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
-Fixtures/**/*.heic filter=lfs diff=lfs merge=lfs -text
-Fixtures/**/*.docx filter=lfs diff=lfs merge=lfs -text
-ThirdParty/pdfium/prebuilt/** filter=lfs diff=lfs merge=lfs -text
