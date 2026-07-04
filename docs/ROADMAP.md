@@ -145,13 +145,13 @@ graph LR
 - Flat-form visual detection (in E12) after AcroForm path proves the pipeline — R2 mitigation ordering.
 
 **Contract freeze points (what makes the parallelism safe):**
-| Freeze | When | Consumers unblocked |
-|---|---|---|
-| PDFEngineAPI protocols v1 | M0 | Viewer, annotations, forms, autofill field discovery |
-| XPC DTO conventions + transport | M0 | All services |
-| VaultModel schema + PolicyTicket API | M0 | Vault impl, autofill, ingestion, policy |
-| Inference typed endpoints v1 | with P1-12 | Autofill matcher, ingestion extractors |
-| FormModel (typed field tree) v1 | with P2-01 | Fill UI, autofill, FormKnowledge |
+| Landed | Freeze | When | Consumers unblocked |
+|---|---|---|---|
+| ☑ (P0-04, ADR-006) | PDFEngineAPI protocols v1 | M0 | Viewer, annotations, forms, autofill field discovery |
+| ☐ | XPC DTO conventions + transport | M0 | All services |
+| ☐ | VaultModel schema + PolicyTicket API | M0 | Vault impl, autofill, ingestion, policy |
+| ☐ | Inference typed endpoints v1 | with P1-12 | Autofill matcher, ingestion extractors |
+| ☐ | FormModel (typed field tree) v1 | with P2-01 | Fill UI, autofill, FormKnowledge |
 
 ---
 

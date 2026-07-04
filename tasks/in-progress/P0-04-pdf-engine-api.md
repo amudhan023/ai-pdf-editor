@@ -33,3 +33,23 @@ ARCHITECTURE.md §3.2: this seam is what keeps viewer, annotations, forms, and a
 
 ## Documentation Updates
 - Package `CLAUDE.md` with the "change = ADR" rule; ROADMAP.md freeze table checkbox.
+
+---
+## Journal
+
+**Plan:** protocols + value types only, Foundation-only imports (confirmed via `Scripts/import-allowlist.txt` — no CoreGraphics, hence local `PDFPoint`/`PDFRect` instead of `CGPoint`/`CGRect`, verified by a standalone compile check that `CGRect` needs `import CoreGraphics`, not just `Foundation`). `FakePDFEngine` as an `actor` (mutable per-document state, async protocol methods fit naturally). Conformance suite shipped in the library (not `Tests/`) so `DocEngineHost` can reuse it later, per Testing Requirements.
+
+**Done:**
+- 6 protocols (`DocumentLifecycle`, `PageRenderer`, `TextEditor`, `PageOrganizer`, `AnnotationStore`, `FormModel` — `DocumentLifecycle` added beyond the task's five because there's no other way to get a `DocumentHandle`; recorded as a deliberate minimal addition in ADR-006) + all value types + `PDFEngineError` typed error taxonomy (self-contained, CLAUDE.md §15 shape, no shared error protocol exists yet to depend on).
+- `FakePDFEngine` implementing all six protocols, plus test-only seeding helpers (`seedDocument`/`seedFields`/`seedTextRuns` — not part of any protocol).
+- `PDFEngineConformanceSuite` (`verifyPageRenderer`, `verifyAnnotationStore`, `verifyFormModel`) + DTO round-trip tests for every `Codable` type + behavior tests for page-organizer ops, text replacement, lifecycle, and error paths.
+- `docs/adr/ADR-006-pdfengineapi-v1.md`, package `CLAUDE.md` updated (still ≤60 lines), `ROADMAP.md` freeze table gets a `Landed` column (☑ for this freeze, ☐ for the other four M0/future ones — none of which existed as a literal checkbox before).
+- `Scripts/verify.sh PDFEngineAPI` → `OK`.
+
+**Security/privacy self-audit:** touches no vault values, no document content persistence (in-memory fake only, discarded on process exit), no network APIs, no logging beyond nothing (this package doesn't log at all).
+
+**Acceptance criteria status:**
+- "Package compiles standalone; `FakePDFEngine` passes a conformance test suite that any real engine must also pass": ✅ — `verify.sh` green, conformance tests pass.
+- "API review sign-off recorded (this is a freeze point)": **pending — this PR requests human review** (API package per CLAUDE.md §21/AGENT_LOOP.md Step 8a); sign-off is your merge of this PR, not something I can self-certify.
+
+**Not done / explicitly out of scope:** no real PDFium-backed implementation (that's `DocEngineHost`, later tasks); no `IOSurface` transport (implementation detail once `DocEngineHost` exists, not a protocol concern — see ADR-006).
