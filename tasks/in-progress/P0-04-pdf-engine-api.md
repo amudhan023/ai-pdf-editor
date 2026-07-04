@@ -1,5 +1,7 @@
 # P0-04 — PDFEngineAPI Protocol Package (Freeze Point)
 
+**Owner:** claude-code · **Branch:** task/P0-04-pdf-engine-api · **Claimed:** 0e14f4bf11c91610ffb774cdff042a28a424de96
+
 **Epic:** E2 · **Primary package:** `Packages/PDFEngineAPI` · **Complexity:** M · **Priority:** Critical
 
 ## Goal
