@@ -21,6 +21,14 @@ force_unwrapping:
 force_try:
   severity: error
 
+identifier_name:
+  min_length:
+    warning: 2
+  excluded:
+    - x
+    - y
+    - id
+
 file_length:
   warning: 400
   error: 600
