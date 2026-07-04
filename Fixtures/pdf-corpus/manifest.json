@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "notes": [
+    "v1 starter set: 5 real, freely-licensed government PDF forms fetched directly over HTTPS from irs.gov / uscis.gov (see source_url per row). This is NOT the >=500-document target from P0-08's original acceptance criteria - that gap is tracked in tasks/escalations/E-005-corpus-acquisition-gap.md and docs/specs/corpus-plan.md.",
+    "page_count and text_sha256 were computed once at authoring time using Apple PDFKit (a system framework) as an inspection tool only - this is NOT PDFium and is NOT part of DocEngineHost/the shipping app; it is the equivalent of opening the file in Preview.app to record its facts, formalized as a script for reproducibility. See Fixtures/pdf-corpus/README.md.",
+    "render_checksum is intentionally omitted: no rasterization engine (PDFium/DocEngine.xpc) exists in this repo yet (tasks/escalations/E-004-pdfium-build-infeasible-on-this-machine.md / P0-06 blocked). Scripts/bench.sh corpus-open validates only what can honestly be validated today: file presence and sha256 integrity.",
+    "file_sha256 is the raw-file hash and is engine-independent - it detects corruption/tampering of the fixture itself and needs no PDF engine to check."
+  ],
+  "rows": [
+    {
+      "id": "irs-fw9",
+      "file": "starter/irs-fw9.pdf",
+      "source_url": "https://www.irs.gov/pub/irs-pdf/fw9.pdf",
+      "license_note": "US federal government work (IRS form) - public domain, no licensing restriction on redistribution.",
+      "file_sha256": "2d420cbb4123dcf1fb82595b2359cfbb5d81f00b9df9d359fcc7af361d093f53",
+      "page_count": 6,
+      "text_sha256": "03821972af2fa9abbdc483516b1f7a54e67c3ba01ac645261171e360aae17223",
+      "text_hash_method": "sha256 of PDFKit PDFPage.string per page, newline-joined, authoring-time reference value"
+    },
+    {
+      "id": "irs-fw4",
+      "file": "starter/irs-fw4.pdf",
+      "source_url": "https://www.irs.gov/pub/irs-pdf/fw4.pdf",
+      "license_note": "US federal government work (IRS form) - public domain, no licensing restriction on redistribution.",
+      "file_sha256": "92444d8856ce55d9e25dca8b6d1420634fc68b11e1ab1f760916ea29ddd312b2",
+      "page_count": 5,
+      "text_sha256": "248a490aa0e62795b90ccda946302bbf9aac6e8cae74f9a7a0c819be9781dec5",
+      "text_hash_method": "sha256 of PDFKit PDFPage.string per page, newline-joined, authoring-time reference value"
+    },
+    {
+      "id": "irs-f1040",
+      "file": "starter/irs-f1040.pdf",
+      "source_url": "https://www.irs.gov/pub/irs-pdf/f1040.pdf",
+      "license_note": "US federal government work (IRS form) - public domain, no licensing restriction on redistribution.",
+      "file_sha256": "3d31c226df0d189ced80e039d01cf0f8820c1019681a0f0ca6264de277b7e982",
+      "page_count": 2,
+      "text_sha256": "5a9e85f7567b4be007719a2164b1aa3e2f4471d6cdf69a78cac7977891d8babb",
+      "text_hash_method": "sha256 of PDFKit PDFPage.string per page, newline-joined, authoring-time reference value"
+    },
+    {
+      "id": "irs-f4506t",
+      "file": "starter/irs-f4506t.pdf",
+      "source_url": "https://www.irs.gov/pub/irs-pdf/f4506t.pdf",
+      "license_note": "US federal government work (IRS form) - public domain, no licensing restriction on redistribution.",
+      "file_sha256": "4de7303eee766f31deb9afbb66aa538e8e04909d31307c494b328e69fbbe634e",
+      "page_count": 2,
+      "text_sha256": "748956e1260d34df3ec7e49ced90f9d3e2f99f279ffa675da3731912240bef15",
+      "text_hash_method": "sha256 of PDFKit PDFPage.string per page, newline-joined, authoring-time reference value"
+    },
+    {
+      "id": "uscis-i9",
+      "file": "starter/uscis-i9.pdf",
+      "source_url": "https://www.uscis.gov/sites/default/files/document/forms/i-9.pdf",
+      "license_note": "US federal government work (USCIS form) - public domain, no licensing restriction on redistribution.",
+      "file_sha256": "780f348c34df694bb0b4dbbfaf9f22b99b9757b80d16a37ba89aadf069597281",
+      "page_count": 4,
+      "text_sha256": "b64117924662dff04b8a2eeeb9996b996e01baf5351da9f92d1200a3705df06b",
+      "text_hash_method": "sha256 of PDFKit PDFPage.string per page, newline-joined, authoring-time reference value"
+    }
+  ],
+  "malformed_rows": [
+    {
+      "id": "zero-byte",
+      "file": "malformed/zero-byte.pdf",
+      "corruption_type": "empty_file",
+      "file_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "expected_behavior": "reject: typed error (e.g. corruptedDocument), no crash, no partial write",
+      "verified_rejected_by": "PDFKit(PDFDocument) at authoring time - fails to open"
+    },
+    {
+      "id": "truncated-header-only",
+      "file": "malformed/truncated-header-only.pdf",
+      "corruption_type": "truncated_before_first_object",
+      "derived_from": "starter/irs-fw9.pdf (first 200 bytes only)",
+      "file_sha256": "e9d29d3064084436590fc103f3e6dc2712781ae0141194741a8895f980e217b7",
+      "expected_behavior": "reject: typed error, no crash, no partial write",
+      "verified_rejected_by": "PDFKit(PDFDocument) at authoring time - fails to open"
+    },
+    {
+      "id": "truncated-mid-stream",
+      "file": "malformed/truncated-mid-stream.pdf",
+      "corruption_type": "truncated_mid_content_no_xref_trailer",
+      "derived_from": "starter/irs-f1040.pdf (first 50% of bytes)",
+      "file_sha256": "ec35e5fa9de86ff3333af98bd2538f4d496a278886f7d36dde9f70a454983008",
+      "expected_behavior": "reject: typed error, no crash, no partial write",
+      "verified_rejected_by": "PDFKit(PDFDocument) at authoring time - fails to open"
+    },
+    {
+      "id": "garbage-after-header",
+      "file": "malformed/garbage-after-header.pdf",
+      "corruption_type": "valid_header_random_body",
+      "derived_from": "starter/irs-fw4.pdf header bytes + /dev/urandom body",
+      "file_sha256": "3daee82437c8dd15563dd806c9749091da5a966af8cf3f9ab86ab78cfb81b5ba",
+      "expected_behavior": "reject: typed error, no crash, no partial write",
+      "verified_rejected_by": "PDFKit(PDFDocument) at authoring time - fails to open"
+    },
+    {
+      "id": "corrupted-trailer",
+      "file": "malformed/corrupted-trailer.pdf",
+      "corruption_type": "trailing_300_bytes_zeroed_xref_and_trailer_destroyed",
+      "derived_from": "starter/uscis-i9.pdf (last 300 bytes overwritten with 0x00)",
+      "file_sha256": "1f812f5144707cc1e12ae6ae9d71be51ac6acc3c3f3ef4718ed77e534e31e606",
+      "expected_behavior": "reject: typed error, no crash, no partial write",
+      "verified_rejected_by": "PDFKit(PDFDocument) at authoring time - fails to open"
+    }
+  ]
+}
