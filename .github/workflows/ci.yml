@@ -1,0 +1,129 @@
+name: CI
+
+# Mirrors Scripts/verify.sh exactly (REPO_STRUCTURE.md §1.4: "works for the
+# agent" = "works in CI"). PRs run only the packages they touch, plus the
+# repo-wide checks; a push to main (i.e. a PR merge) always runs the full
+# matrix as a final backstop. `ci-status` is the single required check for
+# branch protection — matrix job names are dynamic, so branch protection
+# targets this aggregator instead of each package job individually.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.compute.outputs.packages }}
+      full_matrix: ${{ steps.compute.outputs.full_matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute changed packages
+        id: compute
+        run: |
+          set -euo pipefail
+          all_packages="$(ls Packages | jq -R -s -c 'split("\n")[:-1]')"
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Push to main (post-merge): full matrix, every time, no exceptions.
+            echo "full_matrix=true" >> "$GITHUB_OUTPUT"
+            echo "packages=$all_packages" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          changed="$(git diff --name-only "$base" "$head")"
+          echo "Changed files:"
+          echo "$changed"
+
+          full=false
+          # Frozen seams (CLAUDE.md §3.6): any *API package or Schemas/ touch
+          # means every package must be re-verified against the new contract.
+          if echo "$changed" | grep -qE '^(Packages/[A-Za-z0-9_]+API/|Schemas/)'; then
+            full=true
+          fi
+
+          if [ "$full" = true ]; then
+            packages="$all_packages"
+          else
+            packages="$(echo "$changed" \
+              | grep -oE '^Packages/[A-Za-z0-9_]+' \
+              | sed 's#Packages/##' \
+              | sort -u \
+              | jq -R -s -c 'split("\n")[:-1]')"
+          fi
+
+          echo "full_matrix=$full" >> "$GITHUB_OUTPUT"
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.packages != '[]'
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.detect-changes.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm full Xcode toolchain
+        run: |
+          # Must be a full Xcode install, not bare Command Line Tools — CLT
+          # ships neither XCTest.framework nor Testing.framework, ever
+          # (tasks/escalations/E-002). GitHub's macOS runners ship full Xcode
+          # by default; this just fails loudly instead of mysteriously if a
+          # future runner image ever regresses that.
+          xcode-select -p
+          xcode-select -p | grep -q "Xcode.app" || { echo "Full Xcode required, CLT-only runner detected (see E-002)"; exit 1; }
+          swift --version
+
+      - name: Scripts/verify.sh ${{ matrix.package }}
+        run: Scripts/verify.sh "${{ matrix.package }}"
+
+  repo-checks:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SwiftLint
+        run: |
+          command -v swiftlint >/dev/null || brew install swiftlint
+          swiftlint lint --config .swiftlint.yml
+
+      - name: PII/secret scan (Fixtures/)
+        run: Scripts/scan-fixtures-pii.sh
+
+      - name: Codegen drift check
+        run: Scripts/codegen.sh --check
+
+  ci-status:
+    needs: [detect-changes, verify, repo-checks]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all applicable checks green
+        run: |
+          if [ "${{ needs.repo-checks.result }}" != "success" ]; then
+            echo "repo-checks: ${{ needs.repo-checks.result }}"
+            exit 1
+          fi
+          if [ "${{ needs.verify.result }}" != "success" ] && [ "${{ needs.verify.result }}" != "skipped" ]; then
+            echo "verify: ${{ needs.verify.result }}"
+            exit 1
+          fi
+          echo "ci-status: all required checks green"

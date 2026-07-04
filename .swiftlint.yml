@@ -1,0 +1,36 @@
+# Authoritative SwiftLint config (CLAUDE.md §4). CI runs this same file
+# (.github/workflows/ci.yml repo-checks job) — don't disable a rule inline
+# without naming the rule and reason in the PR (CLAUDE.md §4).
+excluded:
+  - "**/.build"
+  - "**/.swiftpm"
+
+opt_in_rules:
+  - force_unwrapping
+
+disabled_rules:
+  - todo # tracked in tasks/, not TODO comments (CLAUDE.md §6)
+
+# CLAUDE.md §4: no force-unwraps outside tests, no `try!` anywhere in product
+# code, ~400-line soft file cap. SwiftLint's built-in rules apply repo-wide
+# (it has no first-class way to exempt Tests/ from force_unwrapping alone);
+# the Tests-vs-Sources distinction is enforced by review, not this file, until
+# a later task needs it expressed as a custom_rule regex.
+force_unwrapping:
+  severity: warning
+force_try:
+  severity: error
+
+file_length:
+  warning: 400
+  error: 600
+type_body_length:
+  warning: 250
+  error: 400
+function_body_length:
+  warning: 60
+  error: 100
+line_length:
+  warning: 150
+  error: 200
+  ignores_urls: true
