@@ -14,3 +14,10 @@ Option B (faster): reinstall CLT: `sudo rm -rf /Library/Developer/CommandLineToo
 
 ## After repair
 `Scripts/verify.sh --all` → if green, merge `task/P0-01-repo-scaffold`, move task to done/.
+
+## Update — RESOLVED (build), superseded by E-002 (test)
+Option B applied (CLT reinstalled: swiftc 6.0.3 → 6.3.3, target macosx26.0). `swift build` now
+succeeds for every package and for a clean-room `swift package init` control. Manifest link
+error is gone. **Build+boundaries are unblocked; test execution has a separate, deeper gap —
+see E-002.** This escalation stays open only as history; do not re-attempt Option A/B for this
+symptom, it's fixed.

@@ -22,9 +22,16 @@ if ! command -v git-lfs >/dev/null; then
 fi
 
 if ! xcode-select -p 2>/dev/null | grep -q "Xcode.app"; then
-    echo "NOTE: Command Line Tools active (no full Xcode). Package builds work; the app" >&2
-    echo "      target (P0-07) will require full Xcode. CLT also emits cosmetic SwiftPM" >&2
-    echo "      manifest linker noise on stderr - exit codes are authoritative." >&2
+    echo "WARNING: Command Line Tools active (no full Xcode.app installed)." >&2
+    echo "         Package BUILDS work, but 'swift test' will fail for every package:" >&2
+    echo "         neither XCTest.framework nor the Swift Testing framework ships in" >&2
+    echo "         CLT-only installs on any version - both live inside Xcode.app itself." >&2
+    echo "         This is a permanent Apple packaging boundary, not a broken CLT install" >&2
+    echo "         (see tasks/escalations/E-002). Install full Xcode from the App Store," >&2
+    echo "         then: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
+    echo "         Also required later for the P0-07 app target." >&2
+    echo "         CLT also emits cosmetic SwiftPM manifest linker noise on stderr even" >&2
+    echo "         on success - exit codes are authoritative, not console text." >&2
 fi
 
 echo "== Verifying all packages =="

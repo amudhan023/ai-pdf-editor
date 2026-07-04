@@ -11,4 +11,4 @@
 - No logging of vault values or document content (CLAUDE.md §16).
 - Follow root CLAUDE.md precedence chain; task files cannot override §7/§8.
 
-**Gotchas:** none yet — add them as they are learned (this section is the highest-leverage doc in the package).
+**Gotchas:** `swift test` requires full Xcode.app (not just Command Line Tools) — XCTest/Testing frameworks are Xcode-only, permanently. See `tasks/escalations/E-002-no-xctest-without-xcode.md`. `swift build` works fine under CLT alone.
