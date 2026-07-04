@@ -90,13 +90,17 @@ G1 mechanical + G2 security + G3 performance + G4 architecture, as applicable to
 
 ### Step 8 — COMPLETE
 
-**8a — Open/merge.** Rebase on `main`, re-run `verify.sh` post-rebase, open (or update) the PR with the CLAUDE.md §13 checklist filled in. If the PR needs human review per §21 (`[INTEGRATION]`, security-touching, or `*API`/`Schemas/` diff), request it. If not, and CI is green, squash-merge. Either way, proceed to 8b — don't block Step 8 waiting synchronously.
+**8a — Poll CI, then merge if eligible.** Rebase on `main`, re-run `verify.sh` post-rebase, open (or update) the PR with the CLAUDE.md §13 checklist filled in. This repo has **no platform-enforced branch protection** (GitHub Free doesn't allow it on private repos — `tasks/escalations/E-003-branch-protection-needs-paid-plan.md`), so nothing on GitHub's side stops a premature merge; the agent's own check of `ci-status` *is* the gate. Poll on a **~5 minute cadence** (don't busy-loop), checking `gh pr checks <n>` (or equivalent) each time:
+  - **`ci-status` green, and the PR is *not* `[INTEGRATION]`/security-touching/`*API`/`Schemas/`, and it doesn't change `CLAUDE.md` or this file:** merge it now, autonomously. This is standing authorization for every ordinary PR, not a one-off ask — go to 8c immediately after.
+  - **`ci-status` green, but the PR *is* `[INTEGRATION]`/security-touching/`*API`/`Schemas/`, or it changes `CLAUDE.md` or `docs/AGENT_LOOP.md`:** do not merge regardless of CI. The latter two are a fourth review-required category on top of CLAUDE.md §21's three, per §10's "improvement rule" below — process/governance docs review themselves, they don't get to except themselves. Request human review explicitly and proceed to 8b.
+  - **`ci-status` red, or a merge conflict:** never merge on red. This is a Verify/Gate failure, not a merge failure — return to Step 4/6, diagnose, fix, re-push, and re-enter 8a's poll. Counts toward the normal 3-strike rule if it's the same failure repeating. Once the fix resolves it and `ci-status` is green, re-evaluate the first bullet above.
+  - **PR closed without merging (by a human, e.g. rejecting the change):** stop and escalate (§9) immediately — a human decision was made against the change; don't reopen it, don't retry silently, don't reinterpret it.
 
-**8b — Wait and verify merge.** Poll on a **~5 minute cadence** (don't busy-loop) and check PR/merge state each time (e.g. `gh pr view <n> --json state,mergeStateStatus,statusCheckRollup`):
-  - **Merged, CI green:** go to 8c.
-  - **Open, CI running, or awaiting human review:** wait another ~5 minutes and re-check. There is no timeout for a review-required PR — it waits as long as it takes; that wait is not idle time and is not a stop condition.
-  - **CI red, merge conflict, or changes requested:** this is a Verify/Gate failure, not a merge failure — return to Step 4/6, fix, re-push, and re-enter 8b. Counts toward the normal 3-strike rule if it's the same failure repeating.
-  - **Merge rejected or PR closed unmerged:** stop and escalate (§9) immediately — a human decision was made against the change; don't reopen it, don't retry silently, don't reinterpret it.
+**8b — Wait for human review (review-required PRs only).** Only reached for `[INTEGRATION]`/security-touching/`*API`/`Schemas/` PRs. Poll on the same ~5 minute cadence for the review decision:
+  - **Approved and merged:** go to 8c.
+  - **Still awaiting review:** wait another ~5 minutes and re-check. There is no timeout — it waits as long as it takes; that wait is not idle time and is not a stop condition.
+  - **Changes requested:** address them (Step 4/6), then back to 8a's CI poll before requesting review again.
+  - **Rejected or closed unmerged:** stop and escalate (§9) immediately, same as 8a's last bullet.
 
 **8c — Sync.** Once merged: `git checkout main && git pull` (fast-forward only). If the pull isn't a clean fast-forward, something raced with another agent or a direct push — stop and investigate before continuing; don't force or rebase past it. This synced `main` is what the next iteration's Step 0 SELECT reads from.
 
@@ -179,7 +183,7 @@ Run the continuous-improvement checklist (§10, ~5 minutes), then return to Step
 6. **Frozen-seam necessity:** the task cannot be completed without changing an API package, schema, entitlement, or root doc → escalate, don't improvise.
 7. **Anomaly of understanding:** the codebase materially contradicts CLAUDE.md/ARCHITECTURE.md (e.g., a vault call path without tickets) → assume you're missing context; stop and escalate rather than "fixing" either side.
 
-Note: waiting on a PR merge (Step 8b's ~5-minute poll cadence) is normal loop operation, not condition 1 — an agent parked in 8b has an unblocked task in flight, it just isn't merged yet. Only escalate out of 8b per its own rules (merge rejected, or the same CI failure surviving 3 strikes).
+Note: waiting on CI or a human review (Step 8a/8b's ~5-minute poll cadence) is normal loop operation, not condition 1 — an agent parked in 8a/8b has an unblocked task in flight, it just isn't merged yet. Only escalate out per those steps' own rules (merge rejected, or the same CI failure surviving 3 strikes).
 
 On any stop: leave the task file in `in-progress/` with a Journal entry stating exactly where things stand and what the next agent (or human) needs to decide.
 
