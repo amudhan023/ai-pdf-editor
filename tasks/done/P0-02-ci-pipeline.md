@@ -54,3 +54,10 @@ REPO_STRUCTURE.md §1 principle 4: "works for the agent" must equal "works in CI
 **Blocked: branch protection (DoD item unmet, not a code defect).** `gh api` confirms GitHub Free does not allow branch protection rules on private repos (403: "Upgrade to GitHub Pro or make this repository public"). Filed as `tasks/escalations/E-003-branch-protection-needs-paid-plan.md`. Human operator's explicit decision: skip the hard merge-blocking gate for now rather than upgrade the plan or make the repo public. CI itself (the actual verification work) is fully live and unaffected — what's missing is GitHub *technically* blocking the merge button, which is now a manual-discipline step (check the PR's Checks tab before merging) instead of a platform guarantee.
 
 **Status:** leaving this task in `in-progress/`, not `done/` — the DoD explicitly lists "branch protection configured on main" and that's genuinely not done, for a documented external reason. Revisit if/when E-003 is resolved (Pro upgrade or going public); until then this is a known, accepted gap, not a silently dropped one.
+
+---
+## Journal update — E-003 resolved by explicit decision, closing task
+
+Human operator directive: skip the branch-protection gate for now (E-003 Option C) and proceed with the rest of the backlog — P0-05 and P0-08 both depend on this task and were blocked waiting on it. `tasks/escalations/E-003-branch-protection-needs-paid-plan.md` updated to reflect the decision (status: resolved by decision, not to be re-raised).
+
+Every other requirement and acceptance criterion for this task is met and verified live (see above). Moving to `done/` now.
