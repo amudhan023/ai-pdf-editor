@@ -1,0 +1,5 @@
+# Vault schema source of truth (tables + canonical field-path catalog).
+# Populated by tasks P0-09 (types) and P1-08 (storage).
+# Changing this file is a frozen-seam change: ADR + human review required.
+version: 1
+sections: {}   # populated by P0-09
