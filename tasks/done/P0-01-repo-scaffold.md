@@ -72,3 +72,16 @@ The layout in docs/REPO_STRUCTURE.md §2 is the contract for all parallel work: 
 **Status: still BLOCKED.** Acceptance criterion "`verify.sh` exits 0 for every package" cannot be met on this machine without a full Xcode install (~7-12GB, App Store). Boundary-lint criterion remains fully met. Task stays in `in-progress/`; not merging with a failing acceptance criterion.
 
 **Next agent / human:** install full Xcode per E-002, `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`, accept license, then `Scripts/verify.sh --all`. If green: rebase branch on main, squash-merge, move this file to `done/`.
+
+---
+## Journal update — E-002 resolved, full Xcode installed
+
+**Unblocked:** human operator installed full Xcode (26.6). `xcode-select -p` → `/Applications/Xcode.app/Contents/Developer`; `swift --version` → Swift 6.3.3.
+
+**Both acceptance criteria now met:**
+- `Scripts/verify.sh --all` → `verify: ALL PACKAGES OK` (build + test + boundary-lint green for all 17 packages).
+- `Scripts/check-boundaries.sh --self-test` → passes (planted violation still detected).
+
+E-001 and E-002 can be considered resolved for this machine; leaving both escalation files in place as-is (historical record + still relevant for any other CLT-only machine, per their own "standing note for future agents").
+
+**Closing this task:** moving to `done/` in the same PR as this update. No CI/branch-protection dependency here (this is P0-01 itself, not P0-02) — `verify.sh --all` passing locally is the acceptance criterion, now demonstrably true.
