@@ -94,7 +94,9 @@ jobs:
           # by default; this just fails loudly instead of mysteriously if a
           # future runner image ever regresses that.
           xcode-select -p
-          xcode-select -p | grep -q "Xcode.app" || { echo "Full Xcode required, CLT-only runner detected (see E-002)"; exit 1; }
+          # GitHub runners install Xcode as a versioned bundle (e.g.
+          # Xcode_16.4.app), not literally "Xcode.app" - match either.
+          xcode-select -p | grep -qE "Xcode(_[0-9.]+)?\.app" || { echo "Full Xcode required, CLT-only runner detected (see E-002)"; exit 1; }
           swift --version
 
       - name: Scripts/verify.sh ${{ matrix.package }}
