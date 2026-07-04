@@ -1,5 +1,7 @@
 # P0-15 — Dedicated Integration-Test CI Gate
 
+**Owner:** claude-code · **Branch:** task/P0-15-integration-test-ci-gate · **Claimed:** fb37d7e
+
 **Epic:** E1 · **Primary package:** none (`.github/workflows/ci.yml` + `Scripts/`) · **Complexity:** M · **Priority:** High
 
 ## Goal
@@ -35,3 +37,19 @@ This task is scoped to the *mechanism* (a real, labeled, required "integration-t
 
 ## Documentation Updates
 - CLAUDE.md §9 (test pyramid — name the new required tier and the naming convention that feeds it), `docs/AGENT_LOOP.md` (Step 4 test-running guidance).
+
+---
+## Journal
+
+**Done:**
+- `Scripts/verify-integration.sh` (new): per-package runner for `final class *ConformanceTests|*IntegrationTests: XCTestCase`, found via `grep -rlE`, run via `swift test --filter '(Conformance|Integration)Tests'`. No matching class → clean skip (exit 0), not a failure — verified against all 17 current packages: `VaultAPI`/`PDFEngineAPI` run their conformance suites, the other 15 (still bootstrap skeletons) skip.
+- `.github/workflows/ci.yml`: new `integration-tests` job (same matrix-over-touched-packages shape as `verify`), wired into `ci-status` with the same success-or-skipped rule `verify` already uses.
+- CLAUDE.md §9/§12/Quick Reference and `docs/AGENT_LOOP.md` Step 4/§3 gate table updated to name the new tier accurately — including being explicit that `Scripts/corpus-roundtrip.sh` (P1-16) still doesn't exist, so AGENT_LOOP.md's Step 4.4 doesn't pretend it does.
+- Manually verified the acceptance criterion end-to-end: broke `VaultAPI`'s `ConformanceSuite.verifyProfileAndFieldCRUD` (flipped an `==` to `!=` in `Packages/VaultAPI/Sources/VaultAPI/ConformanceSuite.swift`), ran `Scripts/verify-integration.sh VaultAPI` → failed with the expected `ConformanceFailure` message; reverted, reran → passed. No trace of the deliberate break left in this diff.
+
+**Security self-audit:** CI-workflow and shell-script change only; touches no vault/document data path, no secrets. `none`.
+
+**Acceptance criteria status:**
+- "`ci-status` fails if a `*ConformanceTests` target fails, verified by a deliberately-broken conformance test in a scratch commit during development (reverted before merge)": ✅ — done locally (see above); not pushed as a commit, reverted before staging, per the parenthetical.
+- "A PR that touches zero packages with conformance tests still shows `integration-tests` as a green/skip, not a silent absence": ✅ — `if: needs.detect-changes.outputs.packages != '[]'` matches `verify`'s existing pattern exactly; per-package skip is a visible `success` step output line, not an absent job.
+- "CLAUDE.md/AGENT_LOOP.md accurately describe what 'integration test' means in this repo's CI today (no overclaiming corpus-roundtrip coverage that doesn't exist)": ✅ — both docs now say `corpus-roundtrip.sh` isn't built yet (P1-16) rather than implying it runs.

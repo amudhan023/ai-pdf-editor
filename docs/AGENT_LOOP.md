@@ -66,9 +66,10 @@ stateDiagram-v2
 
 ### Step 4 — VERIFY (targeted, then widening)
 1. `Scripts/verify.sh <PrimaryPackage>` — build, package tests, boundary lint.
-2. If the task touches a benched path: `Scripts/bench.sh <relevant-suite>` and compare to baseline.
-3. If the task mutates PDFs: `Scripts/corpus-roundtrip.sh --sample` (full suite runs in CI).
-4. Run consumer-package test suites for any `[INTEGRATION]` task.
+2. `Scripts/verify-integration.sh <PrimaryPackage>` — the package's `*Conformance`/`*Integration` test classes, if it has any (P0-15); a clean skip is fine, don't add a placeholder test just to avoid one.
+3. If the task touches a benched path: `Scripts/bench.sh <relevant-suite>` and compare to baseline.
+4. If the task mutates PDFs: `Scripts/corpus-roundtrip.sh --sample` once it exists (P1-16 — not yet built; until then this step is a no-op for mutation-path tasks, don't fabricate it).
+5. Run consumer-package test suites for any `[INTEGRATION]` task.
 
 **Fix loop:** on failure, diagnose → fix → re-verify. A "strike" = one abandoned fix *strategy* (not one failing run). After **3 strikes** on the same failure, stop and escalate with the Journal (§9). Never weaken a test, loosen an assertion, skip a gate, or mark a bench "flaky" to get green — that is a red-line violation, not a fix.
 
@@ -125,6 +126,7 @@ Run the continuous-improvement checklist (§10, ~5 minutes), then return to Step
 |---|---|---|
 | Package build + tests | `verify.sh` | Yes |
 | Import-boundary lint | `verify.sh` | Yes |
+| Integration tier (`*Conformance`/`*Integration` tests, P0-15) | `verify-integration.sh` | Yes (skip is valid if none exist) |
 | SwiftLint, format | CI repo-wide job | Yes |
 | Codegen drift (`Schemas/` ↔ generated) | `codegen.sh --check` | Yes |
 | Fixture PII/secret scan | CI | Yes |

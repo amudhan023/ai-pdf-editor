@@ -1,11 +1,12 @@
 name: CI
 
-# Mirrors Scripts/verify.sh exactly (REPO_STRUCTURE.md §1.4: "works for the
-# agent" = "works in CI"). PRs run only the packages they touch, plus the
-# repo-wide checks; a push to main (i.e. a PR merge) always runs the full
-# matrix as a final backstop. `ci-status` is the single required check for
-# branch protection — matrix job names are dynamic, so branch protection
-# targets this aggregator instead of each package job individually.
+# Mirrors Scripts/verify.sh and Scripts/verify-integration.sh exactly
+# (REPO_STRUCTURE.md §1.4: "works for the agent" = "works in CI"). PRs run
+# only the packages they touch, plus the repo-wide checks; a push to main
+# (i.e. a PR merge) always runs the full matrix as a final backstop.
+# `ci-status` is the single required check for branch protection — matrix
+# job names are dynamic, so branch protection targets this aggregator
+# instead of each package job individually.
 
 on:
   pull_request:
@@ -102,6 +103,34 @@ jobs:
       - name: Scripts/verify.sh ${{ matrix.package }}
         run: Scripts/verify.sh "${{ matrix.package }}"
 
+  # Integration tier (P0-15): *Conformance/*Integration test classes within
+  # a touched package's own test target, run as their own labeled, required
+  # check - separate from verify's unit-test step even though today they
+  # live in the same swift test invocation under the hood. A package with
+  # no such test class is a legitimate skip (most packages are still
+  # bootstrap skeletons), not a failure.
+  # TODO(P1-16): once Scripts/corpus-roundtrip.sh exists, this job is where
+  # it slots in for packages on the mutation-path (CLAUDE.md §11).
+  integration-tests:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.packages != '[]'
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.detect-changes.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm full Xcode toolchain
+        run: |
+          xcode-select -p
+          xcode-select -p | grep -qE "Xcode(_[0-9.]+)?\.app" || { echo "Full Xcode required, CLT-only runner detected (see E-002)"; exit 1; }
+          swift --version
+
+      - name: Scripts/verify-integration.sh ${{ matrix.package }}
+        run: Scripts/verify-integration.sh "${{ matrix.package }}"
+
   repo-checks:
     runs-on: macos-15
     steps:
@@ -119,7 +148,7 @@ jobs:
         run: Scripts/codegen.sh --check
 
   ci-status:
-    needs: [detect-changes, verify, repo-checks]
+    needs: [detect-changes, verify, integration-tests, repo-checks]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -131,6 +160,10 @@ jobs:
           fi
           if [ "${{ needs.verify.result }}" != "success" ] && [ "${{ needs.verify.result }}" != "skipped" ]; then
             echo "verify: ${{ needs.verify.result }}"
+            exit 1
+          fi
+          if [ "${{ needs.integration-tests.result }}" != "success" ] && [ "${{ needs.integration-tests.result }}" != "skipped" ]; then
+            echo "integration-tests: ${{ needs.integration-tests.result }}"
             exit 1
           fi
           echo "ci-status: all required checks green"
