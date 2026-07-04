@@ -60,8 +60,13 @@ jobs:
           if [ "$full" = true ]; then
             packages="$all_packages"
           else
+            # `grep -oE` exits 1 when a PR touches zero Packages/ paths (a
+            # valid, common case — e.g. this PR) — under pipefail that would
+            # otherwise fail the whole pipeline even though there's nothing
+            # wrong. `|| true` on that stage alone keeps its (empty) stdout
+            # flowing to sed/sort/jq without letting its exit code propagate.
             packages="$(echo "$changed" \
-              | grep -oE '^Packages/[A-Za-z0-9_]+' \
+              | { grep -oE '^Packages/[A-Za-z0-9_]+' || true; } \
               | sed 's#Packages/##' \
               | sort -u \
               | jq -R -s -c 'split("\n")[:-1]')"
