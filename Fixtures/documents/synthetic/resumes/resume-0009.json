@@ -1,0 +1,25 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "393 Corpus Way",
+  "addressZip" : "41158",
+  "email" : "reese.testley@example.com",
+  "employment" : [
+    {
+      "company" : "Corpus Logistics Co",
+      "endDate" : "2022-01",
+      "startDate" : "2021-01",
+      "title" : "Data Clerk"
+    }
+  ],
+  "fullName" : "Reese Testley",
+  "graduationYear" : 2021,
+  "phone" : "555-0164",
+  "recordId" : "resume-0009",
+  "school" : "Testcase Community College",
+  "seed" : 42,
+  "skills" : [
+    "Equipment maintenance",
+    "Scheduling"
+  ]
+}

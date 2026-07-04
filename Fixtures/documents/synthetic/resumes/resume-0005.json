@@ -1,0 +1,26 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "7043 Corpus Way",
+  "addressZip" : "34580",
+  "email" : "riley.stubwright@example.org",
+  "employment" : [
+    {
+      "company" : "Corpus Logistics Co",
+      "endDate" : "2004-01",
+      "startDate" : "2002-01",
+      "title" : "Field Technician"
+    }
+  ],
+  "fullName" : "Riley Stubwright",
+  "graduationYear" : 2002,
+  "phone" : "555-0127",
+  "recordId" : "resume-0005",
+  "school" : "Sample State University",
+  "seed" : 42,
+  "skills" : [
+    "Basic bookkeeping",
+    "Customer intake",
+    "Inventory tracking"
+  ]
+}

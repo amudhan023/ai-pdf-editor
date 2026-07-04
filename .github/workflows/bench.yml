@@ -1,19 +1,33 @@
 name: Bench
 
-# Stub, manual-trigger only. Real implementation lands with task P0-08
-# (fixtures/bench harness) — this exists now so the workflow is registered
-# and the interface (workflow_dispatch, no automatic triggers) is stable
-# ahead of that task, matching how Scripts/codegen.sh was stubbed for P0-02.
+# Manual-trigger only (root CLAUDE.md/AGENT_LOOP.md govern when perf/accuracy
+# regressions block a PR — that gate is per-task via Scripts/bench.sh, not
+# this workflow). Runs every Scripts/bench.sh suite and publishes the JSON
+# result as a workflow artifact so trend comparisons have something to diff
+# against; see Scripts/bench.sh's own header for which suites are fully live
+# today vs. explicitly skipped pending P0-06 (PDFium/DocEngineHost).
 
 on:
   workflow_dispatch:
 
 jobs:
-  bench-stub:
+  bench:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Not yet implemented
+
+      - name: Confirm full Xcode toolchain
         run: |
-          echo "Benchmark harness not yet implemented — reserved for task P0-08."
-          exit 0
+          # Scripts/bench.sh's generator-determinism suite shells out to
+          # `swift`; same E-002 guard as ci.yml's verify job.
+          xcode-select -p
+          xcode-select -p | grep -qE "Xcode(_[0-9.]+)?\.app" || { echo "Full Xcode required, CLT-only runner detected (see E-002)"; exit 1; }
+
+      - name: Run all bench suites
+        run: Scripts/bench.sh --all | tee bench-results.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: bench-results.json
+          retention-days: 90

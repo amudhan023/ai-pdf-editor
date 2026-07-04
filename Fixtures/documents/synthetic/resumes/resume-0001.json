@@ -1,0 +1,25 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "7339 Testcase Blvd",
+  "addressZip" : "16483",
+  "email" : "jordan.synthfield@example.com",
+  "employment" : [
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2014-01",
+      "startDate" : "2010-01",
+      "title" : "Support Specialist"
+    }
+  ],
+  "fullName" : "Jordan Synthfield",
+  "graduationYear" : 2010,
+  "phone" : "555-0186",
+  "recordId" : "resume-0001",
+  "school" : "Testcase Community College",
+  "seed" : 42,
+  "skills" : [
+    "Report drafting",
+    "Equipment maintenance"
+  ]
+}

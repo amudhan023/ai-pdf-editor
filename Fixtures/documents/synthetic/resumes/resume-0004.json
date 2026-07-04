@@ -1,0 +1,27 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "2000 Testcase Blvd",
+  "addressZip" : "43762",
+  "email" : "quinn.synthfield@example.com",
+  "employment" : [
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2017-01",
+      "startDate" : "2015-01",
+      "title" : "Operations Analyst"
+    }
+  ],
+  "fullName" : "Quinn Synthfield",
+  "graduationYear" : 2015,
+  "phone" : "555-0187",
+  "recordId" : "resume-0004",
+  "school" : "Testcase Community College",
+  "seed" : 42,
+  "skills" : [
+    "Customer intake",
+    "Scheduling",
+    "Equipment maintenance",
+    "Inventory tracking"
+  ]
+}

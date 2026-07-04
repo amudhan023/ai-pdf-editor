@@ -1,0 +1,16 @@
+{
+  "birthDate" : "1980-11-10",
+  "documentNumber" : "L29997090",
+  "expiryDate" : "2029-12-22",
+  "formatNote" : "Modeled as an ICAO TD1 MRZ-bearing ID-card document, not a specific US state's PDF417-barcode driver's license (no MRZ) — see Fixtures\/documents\/README.md.",
+  "givenNames" : "Reese",
+  "issuingState" : "UTO",
+  "mrzLine1" : "IDUTOL299970906<<<<<<<<<<<<<<<",
+  "mrzLine2" : "8011107F2912224UTO<<<<<<<<<<<8",
+  "mrzLine3" : "PLACEHOLT<<REESE<<<<<<<<<<<<<<",
+  "nationality" : "UTO",
+  "recordId" : "license-0007",
+  "seed" : 42,
+  "sex" : "F",
+  "surname" : "Placeholt"
+}
