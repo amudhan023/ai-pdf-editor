@@ -1,0 +1,38 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "3593 Mock Cir",
+  "addressZip" : "33487",
+  "email" : "reese.synthfield@example.com",
+  "employment" : [
+    {
+      "company" : "Synthfield Group",
+      "endDate" : "2020-01",
+      "startDate" : "2019-01",
+      "title" : "Operations Analyst"
+    },
+    {
+      "company" : "Corpus Logistics Co",
+      "endDate" : "2021-01",
+      "startDate" : "2020-01",
+      "title" : "Program Coordinator"
+    },
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2023-01",
+      "startDate" : "2021-01",
+      "title" : "Program Coordinator"
+    }
+  ],
+  "fullName" : "Reese Synthfield",
+  "graduationYear" : 2019,
+  "phone" : "555-0107",
+  "recordId" : "resume-0010",
+  "school" : "Sample State University",
+  "seed" : 42,
+  "skills" : [
+    "Report drafting",
+    "Equipment maintenance",
+    "Basic bookkeeping"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "1376 Fixture Ln",
+  "addressZip" : "34412",
+  "email" : "alex.stubwright@example.net",
+  "employment" : [
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2013-01",
+      "startDate" : "2009-01",
+      "title" : "Operations Analyst"
+    },
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2017-01",
+      "startDate" : "2013-01",
+      "title" : "Field Technician"
+    }
+  ],
+  "fullName" : "Alex Stubwright",
+  "graduationYear" : 2009,
+  "phone" : "555-0128",
+  "recordId" : "resume-0006",
+  "school" : "Testcase Community College",
+  "seed" : 42,
+  "skills" : [
+    "Scheduling",
+    "Customer intake",
+    "Inventory tracking"
+  ]
+}

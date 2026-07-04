@@ -1,0 +1,26 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "3571 Mock Cir",
+  "addressZip" : "85643",
+  "email" : "skyler.sampleford@example.com",
+  "employment" : [
+    {
+      "company" : "Synthfield Group",
+      "endDate" : "2010-01",
+      "startDate" : "2009-01",
+      "title" : "Operations Analyst"
+    }
+  ],
+  "fullName" : "Skyler Sampleford",
+  "graduationYear" : 2009,
+  "phone" : "555-0196",
+  "recordId" : "resume-0008",
+  "school" : "Testcase Community College",
+  "seed" : 42,
+  "skills" : [
+    "Report drafting",
+    "Basic bookkeeping",
+    "Customer intake"
+  ]
+}

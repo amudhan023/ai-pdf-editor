@@ -1,0 +1,38 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "9008 Testcase Blvd",
+  "addressZip" : "55602",
+  "email" : "reese.testley@example.org",
+  "employment" : [
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2002-01",
+      "startDate" : "2000-01",
+      "title" : "Field Technician"
+    },
+    {
+      "company" : "Synthfield Group",
+      "endDate" : "2003-01",
+      "startDate" : "2002-01",
+      "title" : "Field Technician"
+    },
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2004-01",
+      "startDate" : "2003-01",
+      "title" : "Operations Analyst"
+    }
+  ],
+  "fullName" : "Reese Testley",
+  "graduationYear" : 2000,
+  "phone" : "555-0182",
+  "recordId" : "resume-0003",
+  "school" : "Testcase Community College",
+  "seed" : 42,
+  "skills" : [
+    "Equipment maintenance",
+    "Customer intake",
+    "Basic bookkeeping"
+  ]
+}

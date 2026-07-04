@@ -1,0 +1,39 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "6067 Mock Cir",
+  "addressZip" : "38961",
+  "email" : "taylor.sampleford@example.net",
+  "employment" : [
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2016-01",
+      "startDate" : "2015-01",
+      "title" : "Data Clerk"
+    },
+    {
+      "company" : "Synthfield Group",
+      "endDate" : "2019-01",
+      "startDate" : "2016-01",
+      "title" : "Support Specialist"
+    },
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2021-01",
+      "startDate" : "2019-01",
+      "title" : "Support Specialist"
+    }
+  ],
+  "fullName" : "Taylor Sampleford",
+  "graduationYear" : 2015,
+  "phone" : "555-0197",
+  "recordId" : "resume-0007",
+  "school" : "Fixture Institute of Technology",
+  "seed" : 42,
+  "skills" : [
+    "Basic bookkeeping",
+    "Inventory tracking",
+    "Report drafting",
+    "Equipment maintenance"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "addressCity" : "Sampleton",
+  "addressState" : "XX",
+  "addressStreet" : "7483 Testcase Blvd",
+  "addressZip" : "74145",
+  "email" : "rowan.vaultbourne@example.com",
+  "employment" : [
+    {
+      "company" : "Fixture Dynamics",
+      "endDate" : "2013-01",
+      "startDate" : "2011-01",
+      "title" : "Support Specialist"
+    }
+  ],
+  "fullName" : "Rowan Vaultbourne",
+  "graduationYear" : 2011,
+  "phone" : "555-0103",
+  "recordId" : "resume-0002",
+  "school" : "Sample State University",
+  "seed" : 42,
+  "skills" : [
+    "Basic bookkeeping",
+    "Equipment maintenance",
+    "Inventory tracking"
+  ]
+}
