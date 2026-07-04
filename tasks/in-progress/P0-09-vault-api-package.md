@@ -1,3 +1,5 @@
+**Owner:** claude-code (session P0-09) · **Branch:** task/P0-09-vault-api-package · **Claimed:** 094af94
+
 # P0-09 — VaultAPI Package: Schema Types & PolicyTicket (Freeze Point)
 
 **Epic:** E8 · **Primary package:** `Packages/VaultAPI` · **Complexity:** M · **Priority:** Critical
