@@ -101,6 +101,7 @@ If your change makes any of these less true, it is wrong regardless of what the 
 
 - Every behavior change ships with tests in the same PR. `Scripts/verify.sh <Package>` (build + tests + boundary lint) must pass locally before you open the PR — it's exactly what CI runs.
 - **Test pyramid by layer:** Domain packages → fast unit + property-based tests (PolicyKit decision table, ValueFormatter losslessness, fingerprint stability are property-test territory). Sessions → state-machine transition tests against `Fake*` clients. Services → conformance suites (API package suites run against fakes *and* real implementations). UI → view-model unit tests + targeted XCUITests + snapshot tests (light/dark).
+- **Integration tier (P0-15):** any test class named `*ConformanceTests` or `*IntegrationTests` (`final class FooConformanceTests: XCTestCase`) is run by CI's separate `integration-tests` job (`Scripts/verify-integration.sh <Package>`), in addition to `verify`'s unit-test step — this is what actually gates `ci-status` on the "integration test" bar, not an implicit assumption. Name a Session/Service-level cross-boundary test this way and it's picked up automatically, no CI edit needed. A package with none yet is a legitimate skip, not a gap to paper over.
 - **Accuracy-bar code** (matcher, OCR, extractors, detection) must run its bench suite (`Scripts/bench.sh <suite>`); regressions against NFR-A1–A4 baselines block merge.
 - **Mutation-path code** (anything that writes PDFs) must extend `Scripts/corpus-roundtrip.sh` coverage.
 - Security-relevant changes add negative tests (ticket-less call rejected, tampered pack refused, locked-vault error surfaced).
@@ -129,7 +130,7 @@ Rules: no full-document loads (stream pages); interactive inference preempts bac
 
 ## 12. Definition of Done (global — task files add to this, never subtract)
 
-- [ ] `Scripts/verify.sh <PrimaryPackage>` green (build + tests + boundary lint)
+- [ ] `Scripts/verify.sh <PrimaryPackage>` green (build + tests + boundary lint); `Scripts/verify-integration.sh <PrimaryPackage>` green if the package has any `*Conformance`/`*Integration` test class
 - [ ] New behavior covered by tests; fixtures added via manifests where applicable
 - [ ] Accuracy/perf benches run and non-regressing when the code is on a benched path
 - [ ] Package `CLAUDE.md` updated if invariants/usage changed
@@ -231,16 +232,17 @@ Reviewers verify claims by running, not by trusting the description.
 
 ```
 Build/verify one package:   Scripts/verify.sh <PackageName>
+Integration tier (P0-15):   Scripts/verify-integration.sh <PackageName>
 Full bootstrap:             Scripts/bootstrap.sh
 Benchmarks:                 Scripts/bench.sh <suite>
-Corpus integrity suite:     Scripts/corpus-roundtrip.sh
+Corpus integrity suite:     Scripts/corpus-roundtrip.sh (not yet built, P1-16)
 Regenerate DTOs:            Scripts/codegen.sh
 PII/secret scan (Fixtures): Scripts/scan-fixtures-pii.sh
-CI (every PR, required):    .github/workflows/ci.yml — same verify.sh per
-                            changed package + SwiftLint/PII-scan/codegen-
-                            drift; full matrix on push to main or any
-                            *API/Schemas/ touch. Merge is blocked until
-                            the `ci-status` check is green.
+CI (every PR, required):    .github/workflows/ci.yml — same verify.sh +
+                            verify-integration.sh per changed package +
+                            SwiftLint/PII-scan/codegen-drift; full matrix
+                            on push to main or any *API/Schemas/ touch.
+                            Merge is blocked until `ci-status` is green.
 Pick work:                  tasks/backlog/<phase>/ (deps must be in done/)
 Branch:                     task/<ID>-<slug>
 Frozen (ADR to change):     Packages/*API/, Schemas/, this file
