@@ -10,6 +10,15 @@ from datetime import datetime, timedelta
 # =========================================================
 # PROJECT ROOT
 # =========================================================
+#
+# WARNING: each iteration runs `claude -p` with cwd=PROJECT_DIR, doing real git
+# operations (branch/commit) there. If you also work interactively in this same
+# checkout while this script is running, your own `git checkout`/`branch`/`reset`
+# can move the shared HEAD out from under a live iteration mid-task (observed
+# 2026-07-05 - caught via `git reflog` and reverted with no data loss, but it was
+# a live near-miss). Do any interactive git work in a separate `git worktree`
+# instead: `git worktree add ../<dir> -b <branch> origin/main`. See
+# docs/AGENT_LOOP.md §2 for the full writeup.
 
 PROJECT_DIR = os.getcwd()
 
@@ -55,6 +64,11 @@ SUCCESS_DELAY_SECONDS = 2
 
 TOKEN_RESET_TIMES = ["02:00", "06:00", "14:00", "18:00", "23:00"]
 
+# Match on the exact wording Claude's CLI has been observed to use, not a guess at what
+# it "should" say - "session limit" wasn't in this list originally and cost ~3 hours of a
+# 30s-retry spin loop (337 no-op cycles, $0 cost but pure waste) before being caught and
+# added on 2026-07-05. If a future rate-limit message slips past this list again, add its
+# exact phrase here rather than trying to generalize the wording.
 TOKEN_ERROR_PATTERNS = [
     "token limit",
     "usage limit",
@@ -192,6 +206,16 @@ def is_token_limit(output):
 # =========================================================
 # CLAUDE EXECUTION
 # =========================================================
+#
+# NOTE: a task killed by CLAUDE_RUN_TIMEOUT_SECONDS leaves whatever it had
+# uncommitted sitting in the working tree, and the *next* invocation is a brand
+# new `claude -p` session with zero memory of that in-progress work (each
+# invocation is stateless - no conversation continuity). See docs/AGENT_LOOP.md
+# Step 3 for why small, frequent commits are the mitigation, not just style.
+#
+# NOTE: if you edit this file while an instance of it is already running, the
+# running process keeps the old code in memory (Python doesn't hot-reload) -
+# you must kill and restart the process for a fix to actually take effect.
 
 CLAUDE_RUN_TIMEOUT_SECONDS = 900
 
