@@ -10,6 +10,7 @@
 - No network APIs, ever (Constitution Art. 1/11; CLAUDE.md §7).
 - No logging of vault values or document content (CLAUDE.md §16) — enforced by `NoPlaintextLoggingTests`' source-grep guard.
 - Real callers go through `TicketVerifyingVaultClient` (adds HMAC verification + replay rejection), never the bare `SQLCipherVaultStore` — the bare store only enforces the structural ticket contract `VaultConformanceSuite` checks (same split rationale as that suite's own doc comment).
+- `VaultLockController` (`Lock/`) owns the lock state machine (locked/unlocking/unlocked), `VaultDidLock`/`VaultDidUnlock` domain events, idle-timeout auto-lock, and the auth-freshness signal `PolicyKit.AuthFreshness` reads — see `docs/specs/vault-security-ux.md` for the full behavior matrix. Key material never survives a `lock()` call: all four `LockedBytes` (master + 3 derived keys) are zeroized before `phase` flips back to `.locked`.
 - Follow root CLAUDE.md precedence chain; task files cannot override §7/§8.
 
 **Gotchas:** `swift test` requires full Xcode.app (not just Command Line Tools) — XCTest/Testing frameworks are Xcode-only, permanently. See `tasks/escalations/E-002-no-xctest-without-xcode.md`. `swift build` works fine under CLT alone.

@@ -2,7 +2,7 @@
 
 **Purpose:** OS service wrappers: XPC transport, Keychain, LocalAuthentication, file coordination, domain event bus. Infrastructure tier.
 
-**Allowed imports:** Foundation, IOSurface (see `Scripts/import-allowlist.txt` — the enforced source of truth). Tests may also import XCTest.
+**Allowed imports:** Foundation, Security, LocalAuthentication, os, OSLog, IOSurface (see `Scripts/import-allowlist.txt` — the enforced source of truth). Tests may also import XCTest.
 
 **Verify:** `Scripts/verify.sh Platform` (build + tests + boundary lint), `Scripts/verify-integration.sh Platform` (the `*ConformanceTests`/`*IntegrationTests` subset).
 
@@ -17,6 +17,7 @@
 **Invariants:**
 - No network APIs, ever (Constitution Art. 1/11; CLAUDE.md §7).
 - No logging of vault values or document content (CLAUDE.md §16).
+- `Auth/LocalAuthenticator.swift`'s `LAContextAuthenticator` (behind the `LocalAuthenticating` protocol) is the one sanctioned `LAContext` entry point — callers needing Touch ID/Apple Watch/password re-auth go through this, never a fresh `LAContext` at the call site, so error-mapping stays in one place (`VaultStore.VaultLockController.reauthenticate` is the current consumer).
 - Follow root CLAUDE.md precedence chain; task files cannot override §7/§8.
 
 **Gotchas:** `swift test` requires full Xcode.app (not just Command Line Tools) — XCTest/Testing frameworks are Xcode-only, permanently. See `tasks/escalations/E-002-no-xctest-without-xcode.md`. `swift build` works fine under CLT alone.
