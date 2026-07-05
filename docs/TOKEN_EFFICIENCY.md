@@ -21,6 +21,7 @@ Load context as a ladder; stop climbing the moment you can act.
 
 | Rung | Load | Typical sufficiency |
 |---|---|---|
+| 0 | `okf/index.md` → the relevant `okf/<dir>/*.md` concept file(s) | Fast orientation on architecture/package/service shape before touching source at all — cheaper than Rung 1-3 reads for "what is this and how does it fit" questions |
 | 1 | Root `CLAUDE.md` + task file | Enough to plan for S-complexity tasks |
 | 2 | + primary package `CLAUDE.md` + its test file *names* | Most M tasks |
 | 3 | + cited doc *sections* + "Files Likely Affected" | Almost everything |
@@ -30,6 +31,7 @@ Load context as a ladder; stop climbing the moment you can act.
 **Hard budgets (exceeding one = signal to stop and reassess, not permission to continue):**
 - ≤ 15 source files read per task; ≤ 3 doc sections; ≤ 1 full document ever (the task file).
 - If Rung 3 leaves you unable to plan, the problem is the task or the docs, not your reading volume — escalate a clarification (§11) instead of reading wider.
+- **`okf/` is a map, not a source of truth.** Its concept files carry an `implementation_status` field precisely so a Rung-0 read doesn't get mistaken for a verified one — if what you're about to do depends on a specific type, protocol, or behavior being real, confirm it against the actual package (`*API` first, per §3) before acting, not against the summary alone.
 
 ## 2. Reading Only Relevant Documentation
 

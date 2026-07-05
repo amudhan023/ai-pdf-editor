@@ -20,7 +20,8 @@ Requires Xcode 16+ (Swift 6). Install `git-lfs` before working with binary fixtu
 | [`docs/PRD.md`](docs/PRD.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | What we're building; how it's designed |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) · [`tasks/`](tasks/) | Dependency-sequenced waves; the executable backlog |
 | [`docs/AGENT_LOOP.md`](docs/AGENT_LOOP.md) | The autonomous development loop |
+| [`okf/index.md`](okf/index.md) | AI-agent knowledge bundle — progressive-disclosure map of the architecture; start here for fast orientation before reading source |
 
 ## Layout
 
-`Packages/` — one SPM package per architecture module (agent workspaces) · `Services/` — the three sandboxed XPC services · `App/` — composition root · `Schemas/` — codegen sources (frozen seam) · `Fixtures/` — test corpora (synthetic data only) · `tasks/` — backlog / in-progress / done.
+`Packages/` — one SPM package per architecture module (agent workspaces) · `Services/` — the three sandboxed XPC services · `App/` — composition root · `Schemas/` — codegen sources (frozen seam) · `Fixtures/` — test corpora (synthetic data only) · `tasks/` — backlog / in-progress / done · `okf/` — AI-agent knowledge bundle (progressive-disclosure architecture map).

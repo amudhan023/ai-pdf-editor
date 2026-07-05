@@ -24,6 +24,13 @@ AI agents (and new humans) are most effective when the repo gives them: **small,
 ai-pdf-editor/
 ├── CLAUDE.md                    # global: build cmds, invariants, layer rules, style
 ├── README.md
+├── okf/                         # AI-agent knowledge bundle (Open Knowledge Format) —
+│                                 #   progressive-disclosure map of architecture/packages/
+│                                 #   services/sessions/engines/ui/workflows; start at
+│                                 #   okf/index.md. The one standing exception to root
+│                                 #   CLAUDE.md §6's "no new top-level directories" rule —
+│                                 #   it's agent tooling, not product code or docs content,
+│                                 #   and carries no frozen-seam or layering implications.
 ├── docs/
 │   ├── PRD.md
 │   ├── ARCHITECTURE.md
