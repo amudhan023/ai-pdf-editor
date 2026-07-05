@@ -1,11 +1,17 @@
 import Foundation
 import InferenceAPI
 
-/// Stub for the Core ML-backed classify/extractEntities/embed adapters —
-/// real models land in later tasks (P1-14 embeddings; classification/NER
-/// in Phase 2). Returns structurally valid, deterministic results.
+/// `classify`/`extractEntities` remain stubs (Phase 2 lands their real
+/// models); `embed` is real as of P1-14 — see `NLEmbeddingProvider` for why
+/// it's NLEmbedding-backed rather than a vendored Core ML pack. `manifest`
+/// is unused by `embed` on purpose: the embedding backend is an OS
+/// capability, not registry-loaded packData.
 public struct CoreMLAdapter: Sendable {
-    public init() {}
+    private let embeddingProvider: NLEmbeddingProvider
+
+    public init(embeddingProvider: NLEmbeddingProvider = NLEmbeddingProvider()) {
+        self.embeddingProvider = embeddingProvider
+    }
 
     public func classify(_ request: ClassifyRequest, manifest: ModelManifest) async throws -> ClassifyResponse {
         guard let first = request.candidateLabels.first else {
@@ -21,6 +27,7 @@ public struct CoreMLAdapter: Sendable {
     }
 
     public func embed(_ request: EmbedRequest, manifest: ModelManifest) async throws -> EmbedResponse {
-        EmbedResponse(vectors: request.texts.map { _ in Array(repeating: Float(0), count: 8) })
+        let vectors = try await embeddingProvider.embed(request.texts)
+        return EmbedResponse(vectors: vectors)
     }
 }
