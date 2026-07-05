@@ -4,6 +4,7 @@
 excluded:
   - "**/.build"
   - "**/.swiftpm"
+  - "ThirdParty/**"
 
 opt_in_rules:
   - force_unwrapping
