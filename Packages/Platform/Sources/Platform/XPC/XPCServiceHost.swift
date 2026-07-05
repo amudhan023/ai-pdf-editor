@@ -124,12 +124,16 @@ private final class ExportedExchanger: NSObject, XPCEnvelopeExchanging, @uncheck
     func exchange(_ requestEnvelopeData: Data, reply: @escaping (Data) -> Void) {
         // `reply` is an Objective-C block handed to us by NSXPCConnection's
         // runtime machinery - safe to call from any thread by design (that's
-        // the whole point of an XPC reply block), so this narrowly-scoped
-        // `nonisolated(unsafe)` reflects a real guarantee, not a bypass.
-        nonisolated(unsafe) let reply = reply
+        // the whole point of an XPC reply block). Boxing it in an explicit
+        // `@unchecked Sendable` type (rather than a `nonisolated(unsafe) let`
+        // capture) is what actually portable across Swift 6.1-6.3 toolchains
+        // - the compiler version this repo's CI runner ships (6.1.2) rejects
+        // the `nonisolated(unsafe)` local-binding form here even though a
+        // newer local toolchain accepts it.
+        let box = ReplyBox(reply)
         Task {
             let responseData = await handleRequest(requestEnvelopeData)
-            reply(responseData)
+            box.call(responseData)
         }
     }
 
@@ -141,4 +145,14 @@ private final class ExportedExchanger: NSObject, XPCEnvelopeExchanging, @uncheck
         let ok = surfaceHandler(surface, tag)
         reply(ok, ok ? nil : "surfaceHandler returned false")
     }
+}
+
+/// Wraps an XPC reply block so it can cross into a `Task {}` without
+/// tripping Swift 6 concurrency's "sending" checks - see the comment at
+/// `ExportedExchanger.exchange`'s call site for why this exists instead of
+/// a `nonisolated(unsafe) let` capture.
+private final class ReplyBox: @unchecked Sendable {
+    private let reply: (Data) -> Void
+    init(_ reply: @escaping (Data) -> Void) { self.reply = reply }
+    func call(_ data: Data) { reply(data) }
 }
