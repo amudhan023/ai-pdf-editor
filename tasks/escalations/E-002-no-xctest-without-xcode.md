@@ -20,3 +20,8 @@ Re-run `Scripts/verify.sh --all`. If green: merge `task/P0-01-repo-scaffold`, mo
 
 ## Standing note for future agents (avoid re-analysis, per TOKEN_EFFICIENCY §7)
 CLT-only environments can build SPM packages but cannot execute their test targets, at all, ever — this is permanent, not a version issue. `Scripts/bootstrap.sh` already warns about CLT-vs-Xcode for the app target; that warning is being broadened in the same PR to cover testing in general so the next agent doesn't re-diagnose this from scratch.
+
+## Update — RESOLVED (2026-07-05)
+Full Xcode is now installed on this machine (`xcode-select -p` → `/Applications/Xcode.app/Contents/Developer`, `xcodebuild -version` → Xcode 26.6). `XCTest.framework` and `Testing.framework` are present and `swift test` works. **This escalation's root cause no longer holds** — do not re-diagnose it; verify with the two commands above before assuming CLT-only. This file stays only as history.
+
+**General lesson:** an escalation file's conclusion is a snapshot of the environment *at the time it was written* — nothing in the repo automatically invalidates it when the environment changes later (e.g. a human installs Xcode outside of any task). Before trusting an open escalation's premise, re-verify it cheaply (`xcode-select -p`, `df -h`, etc.) rather than assuming it still holds.
