@@ -1,5 +1,7 @@
 # P1-12 — Inference.xpc: Service, Model Registry & Memory Governor
 
+**Owner:** claude-agent · **Branch:** task/P1-12-inference-service-registry · **Claimed:** ffa626bc67fd16bc72b585f0fe53d1573fd4e6b0
+
 **Epic:** E10 · **Primary package:** `Packages/InferenceHost` + `Services/InferenceService` + `Packages/InferenceAPI` `[INTEGRATION]` · **Complexity:** L · **Priority:** Critical
 
 ## Goal
