@@ -12,6 +12,7 @@ Canonical references (do not restate their content in code comments or new docs 
 - `docs/AGENT_LOOP.md` — the autonomous iteration loop: gates, stop/escalation conditions, multi-agent concurrency
 - `docs/TOKEN_EFFICIENCY.md` — context-loading and token-cost rules for every iteration
 - `tasks/README.md` — task workflow and the global Definition of Done
+- `okf/index.md` — Open Knowledge Format bundle: a progressive-disclosure map of the codebase (architecture, packages, services, sessions, engines, UI, workflows) for fast agent orientation before reading source. Each concept file carries an `implementation_status` (`implemented`/`partial`/`scaffolded`/`planned`) — trust that over prose. A documented, explicit exception to the "no new top-level directories" rule in §6.
 
 ---
 
@@ -69,7 +70,7 @@ If your change makes any of these less true, it is wrong regardless of what the 
 
 ## 6. Repository Conventions
 
-- Layout per `docs/REPO_STRUCTURE.md`. Do not create new top-level directories.
+- Layout per `docs/REPO_STRUCTURE.md`. Do not create new top-level directories. (`okf/` is the one standing exception — an AI-agent knowledge bundle, not product code or docs content; see the canonical references list above.)
 - **One task = one package** (the task's `Primary package`). Multi-package work must be an `[INTEGRATION]` task and must not run concurrently with tasks touching the same packages.
 - Task workflow: pick from `tasks/backlog/<current-phase>/` (dependencies must be in `done/`) → move file to `in-progress/` with owner+branch header → work → PR links the task file → merge moves it to `done/`.
 - Fixtures are data-driven: new regression cases are fixture + manifest-row additions, not bespoke test scaffolding. **Never commit real PII to `Fixtures/`** — synthetic generators only; CI scans and will reject you.
@@ -245,6 +246,7 @@ CI (every PR, required):    .github/workflows/ci.yml — same verify.sh +
                             Merge is blocked until `ci-status` is green.
 Pick work:                  tasks/backlog/<phase>/ (deps must be in done/)
 Branch:                     task/<ID>-<slug>
+Agent orientation map:      okf/index.md (start here before reading source)
 Frozen (ADR to change):     Packages/*API/, Schemas/, this file
 Absolute red lines:         network calls · vault values in logs/telemetry ·
                             ticket-less vault access · non-atomic doc writes ·
