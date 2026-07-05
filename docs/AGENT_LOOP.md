@@ -61,7 +61,7 @@ stateDiagram-v2
 
 ### Step 3 — IMPLEMENT
 - Test-first for logic with crisp contracts (PolicyKit rules, formatters, parsers, state machines); test-alongside for UI and adapters.
-- Small commits, conventional format, each leaving the package compiling.
+- Small commits, conventional format, each leaving the package compiling. **This is not just style**: an unattended/scripted invocation of an agent (e.g. a supervisor loop with a wall-clock timeout per session) can be killed mid-task with no warning, and each such invocation starts a fresh session with zero memory of prior in-progress work — frequent small commits are what bounds how much work a kill can orphan. Observed 2026-07-05: a 900s-timeout wrapper killed a session mid-task, leaving substantial uncommitted work that the next (unrelated, stateless) invocation had no knowledge of.
 - Follow CLAUDE.md §4/§5 standards and §20 rules for modifying existing code. When you find adjacent defects outside scope: fix trivial ones in a separate commit if inside the primary package; otherwise file them (§10).
 
 ### Step 4 — VERIFY (targeted, then widening)
@@ -119,7 +119,7 @@ Run the continuous-improvement checklist (§10, ~5 minutes), then return to Step
 - Shared surfaces (`App/`, `Packages/*API/`, `Schemas/`, root docs) are serialized by the same rule — they are the listed primary/integration surfaces of exactly one in-progress task at a time.
 - Rebase-before-merge is mandatory; if a rebase conflicts outside your primary package, something violated isolation — stop and escalate rather than resolving blind.
 - Stale claims: a task in `in-progress/` whose branch has no commits newer than 100 merged PRs to main may be reclaimed; append a takeover note to its Journal and start from its last green state.
-
+- **Non-loop processes sharing the same working directory are not covered by the mutex above.** The claim-commit lock only protects against *other loop-following agents*; it does nothing against a human or an ad-hoc interactive session running `git checkout`/`git branch`/`git reset` in the same checked-out directory a loop iteration is actively using — those commands move the shared `HEAD`/index regardless of who owns the current claim. Observed 2026-07-05: an interactive session's `git checkout -b` briefly reassigned `HEAD` away from a live loop iteration mid-task; caught via `git reflog` and reverted with no data loss, but it was a live near-miss, not a hypothetical. **Anyone — human or agent — doing incidental git work alongside a running loop process must use a separate `git worktree`** (`git worktree add ../<dir> -b <branch> origin/main`) rather than checking out branches in the loop's own working directory.
 ## 3. Quality Gates (G1 — mechanical, every PR)
 
 | Check | Tool | Blocking? |
