@@ -150,8 +150,10 @@ private final class ExportedExchanger: NSObject, XPCEnvelopeExchanging, @uncheck
 /// Wraps an XPC reply block so it can cross into a `Task {}` without
 /// tripping Swift 6 concurrency's "sending" checks - see the comment at
 /// `ExportedExchanger.exchange`'s call site for why this exists instead of
-/// a `nonisolated(unsafe) let` capture.
-private final class ReplyBox: @unchecked Sendable {
+/// a `nonisolated(unsafe) let` capture. `internal` (not `private`) so
+/// test-only exported objects (e.g. `XPCCrashRecoveryIntegrationTests`)
+/// can reuse it via `@testable import` instead of duplicating this pattern.
+final class ReplyBox: @unchecked Sendable {
     private let reply: (Data) -> Void
     init(_ reply: @escaping (Data) -> Void) { self.reply = reply }
     func call(_ data: Data) { reply(data) }

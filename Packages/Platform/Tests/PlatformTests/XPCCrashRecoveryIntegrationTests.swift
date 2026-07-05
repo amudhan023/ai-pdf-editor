@@ -37,13 +37,17 @@ final class XPCCrashRecoveryIntegrationTests: XCTestCase {
         }
 
         func exchange(_ requestEnvelopeData: Data, reply: @escaping (Data) -> Void) {
-            nonisolated(unsafe) let reply = reply
+            // `nonisolated(unsafe) let reply = reply` compiles on newer
+            // toolchains but is rejected by this repo's CI runner (Swift
+            // 6.1.2) - an explicit `@unchecked Sendable` box is portable
+            // across both (see XPCServiceHost.swift's `ReplyBox`, same fix).
+            let box = ReplyBox(reply)
             Task {
                 guard
                     let envelope = try? JSONDecoder().decode(XPCEnvelope.self, from: requestEnvelopeData),
                     let request = try? JSONDecoder().decode(PingRequest.self, from: envelope.payload)
                 else {
-                    reply(Data())
+                    box.call(Data())
                     return
                 }
                 if request.nonce == "CRASH_ME" {
@@ -56,13 +60,13 @@ final class XPCCrashRecoveryIntegrationTests: XCTestCase {
                 }
                 let response = PingResponse(echoedNonce: request.nonce, serviceVersion: "crash-recovery-test")
                 guard let payload = try? JSONEncoder().encode(response) else {
-                    reply(Data())
+                    box.call(Data())
                     return
                 }
                 let responseEnvelope = XPCResponseEnvelope(
                     interfaceVersion: envelope.interfaceVersion, payload: payload, error: nil
                 )
-                reply((try? JSONEncoder().encode(responseEnvelope)) ?? Data())
+                box.call((try? JSONEncoder().encode(responseEnvelope)) ?? Data())
             }
         }
 
