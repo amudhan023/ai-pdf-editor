@@ -1,3 +1,5 @@
+**Owner:** claude-code · **Branch:** task/P1-08-vault-service-storage · **Claimed:** 6046e01dfab47b97d5a28c2559a4e3fdca91fc4f
+
 # P1-08 — Vault.xpc: SQLCipher Store & Key Hierarchy
 
 **Epic:** E8 · **Primary package:** `Packages/VaultStore` + `Services/VaultService` · **Complexity:** L · **Priority:** Critical
