@@ -18,6 +18,10 @@
 #                          the same seed and requires byte-identical output.
 #   render-latency         Perf suite from the task's original scope. Reported
 #                          as skipped: no renderer exists yet (same P0-06 gap).
+#   xpc-latency            Real round-trip latency via Packages/Platform's
+#                          XPCLatencyBench executable (P0-05/ADR-002 baseline)
+#                          - same-process anonymous-listener calls, so it
+#                          excludes real cross-process Mach IPC overhead.
 #
 # Usage:
 #   Scripts/bench.sh <suite>       run one suite, print its JSON result
@@ -189,11 +193,19 @@ render_latency() {
     return 0
 }
 
+# ---------------------------------------------------------------------------
+# xpc-latency (P0-05: ADR-002's measured round-trip latency baseline)
+# ---------------------------------------------------------------------------
+xpc_latency() {
+    swift run --package-path "$ROOT/Packages/Platform" -q XPCLatencyBench 2>/dev/null \
+        || jq -n '{suite:"xpc-latency",status:"fail",reason:"XPCLatencyBench did not run"}'
+}
+
 run_all() {
     local rc=0
     local out="["
     local first=true
-    for fn in corpus_open manifest_validate field_mapping generator_determinism render_latency; do
+    for fn in corpus_open manifest_validate field_mapping generator_determinism render_latency xpc_latency; do
         local r
         r="$($fn)" || rc=1
         [ "$first" = true ] || out+=","
@@ -258,10 +270,11 @@ case "${1:-}" in
     field-mapping) field_mapping ;;
     generator-determinism) generator_determinism "${2:-42}" ;;
     render-latency) render_latency ;;
+    xpc-latency) xpc_latency ;;
     --all) run_all ;;
     --self-test) self_test ;;
     "")
-        echo "usage: bench.sh <corpus-open|manifest-validate|field-mapping|generator-determinism|render-latency> | --all | --self-test" >&2
+        echo "usage: bench.sh <corpus-open|manifest-validate|field-mapping|generator-determinism|render-latency|xpc-latency> | --all | --self-test" >&2
         exit 2
         ;;
     *)

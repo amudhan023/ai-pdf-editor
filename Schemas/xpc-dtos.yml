@@ -1,5 +1,19 @@
 # XPC DTO schema — single source of truth for cross-process message types.
-# Codegen (Scripts/codegen.sh) is implemented by task P0-05.
-# Changing this file is a frozen-seam change: ADR + human review required.
+# Codegen (Scripts/codegen.sh) generates
+# Packages/Platform/Sources/Platform/XPC/Generated/XPCDTOs.generated.swift
+# from this file. Changing this file is a frozen-seam change: ADR + human
+# review required (CLAUDE.md §3.6).
+#
+# Grammar (a deliberately constrained subset of YAML, not general YAML -
+# see Schemas/README.md for exactly what Scripts/codegen.sh's parser
+# supports): 2-space indentation, no lists, no quoting, no anchors.
 version: 1
-dtos: {}   # populated by P0-05
+interfaceVersion: v1
+dtos:
+  PingRequest:
+    fields:
+      nonce: string
+  PingResponse:
+    fields:
+      echoedNonce: string
+      serviceVersion: string
