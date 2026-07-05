@@ -1,5 +1,7 @@
 # P1-09 — Vault Lock/Unlock, Touch ID & Auto-Lock
 
+**Owner:** claude-agent · **Branch:** task/P1-09-vault-lock-auth · **Claimed:** 59fe7007f4d0c53c5ada62618e8312f7b5288b50
+
 **Epic:** E8 · **Primary package:** `Packages/VaultStore` (+ `Packages/Platform` LAContext wrapper) · **Complexity:** M · **Priority:** Critical
 
 ## Goal
