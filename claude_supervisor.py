@@ -156,14 +156,40 @@ def next_reset_seconds():
     return min(candidates)
 
 
-def wait_for_reset():
-    seconds = next_reset_seconds()
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
+TOKEN_POLL_INTERVAL_SECONDS = 300
 
-    log(f"⛔ Token limit hit. Sleeping {hours}h {minutes}m")
-    time.sleep(seconds)
-    log("✅ Token window resumed")
+
+def wait_for_reset(state):
+    """Re-probe with a real request every TOKEN_POLL_INTERVAL_SECONDS instead of
+    blindly sleeping for the full duration implied by the fixed reset-time table
+    (that table is only a guess and the actual usage window can reopen sooner)."""
+    max_wait = next_reset_seconds()
+    deadline = time.time() + max_wait
+    hours = int(max_wait // 3600)
+    minutes = int((max_wait % 3600) // 60)
+
+    log(f"⛔ Token limit hit. Probing every {TOKEN_POLL_INTERVAL_SECONDS // 60}m "
+        f"(safety cap {hours}h {minutes}m)")
+
+    while time.time() < deadline:
+        time.sleep(TOKEN_POLL_INTERVAL_SECONDS)
+
+        state["runs"] += 1
+        save_state(state)
+
+        exit_code, output = run_claude(state)
+
+        with open(os.path.join(LOG_DIR, f"run-{state['runs']}.log"), "w") as f:
+            f.write(output or "")
+
+        if not is_token_limit(output):
+            log("✅ Token window resumed (detected via probe)")
+            return exit_code, output
+
+        log("⏳ Still rate-limited, continuing to probe...")
+
+    log("⚠️ Safety cap reached without a clean probe; resuming normal loop")
+    return None
 
 
 # =========================================================
@@ -204,6 +230,7 @@ def run_claude(state):
                 "-p", BOOTSTRAP_PROMPT,
                 "--output-format", "json",
                 "--permission-mode", "bypassPermissions",
+                "--effort", "medium",
             ],
             cwd=PROJECT_DIR,
             capture_output=True,
@@ -264,7 +291,17 @@ def main():
         if is_token_limit(output):
             state["token_hits"] += 1
             save_state(state)
-            wait_for_reset()
+
+            result = wait_for_reset(state)
+            if result is not None:
+                exit_code, output = result
+                log(f"Claude exit code: {exit_code}")
+                if exit_code == 0:
+                    log("✅ Task completed (single-task contract fulfilled)")
+                    time.sleep(SUCCESS_DELAY_SECONDS)
+                else:
+                    log("⚠️ Failure detected, retrying...")
+                    time.sleep(RETRY_DELAY_SECONDS)
             continue
 
         # -----------------------------
