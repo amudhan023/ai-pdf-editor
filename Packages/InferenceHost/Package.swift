@@ -9,13 +9,15 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../InferenceAPI"),
-        .package(path: "../Platform"),    ],
+        .package(path: "../Platform")
+    ],
     targets: [
         .target(
             name: "InferenceHost",
             dependencies: [
                 .product(name: "InferenceAPI", package: "InferenceAPI"),
-                .product(name: "Platform", package: "Platform"),            ]
+                .product(name: "Platform", package: "Platform")
+            ]
         ),
         .testTarget(name: "InferenceHostTests", dependencies: ["InferenceHost"])
     ]
