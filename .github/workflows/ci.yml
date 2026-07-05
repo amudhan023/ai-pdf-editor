@@ -135,8 +135,10 @@ jobs:
   # REPO_STRUCTURE.md), not Packages/* modules - detect-changes' matrix
   # doesn't scan this directory, so it gets one small unconditional job
   # instead (same pattern as repo-checks) rather than being silently
-  # unverified. Extend this list as P1-08/P1-12 add VaultService/
-  # InferenceService skeletons.
+  # unverified. Extend this list for future Services/* skeletons.
+  # NOTE: Services/InferenceService (P1-12) predates this job gaining a
+  # VaultService step and still isn't listed here - filed as a follow-up,
+  # see tasks/backlog/phase-1/P1-XX-inference-service-ci-gap.md.
   services:
     runs-on: macos-15
     steps:
@@ -152,6 +154,11 @@ jobs:
         run: |
           swift build --package-path Services/DocEngineService
           swift test --package-path Services/DocEngineService
+
+      - name: Scripts/verify.sh Services/VaultService
+        run: |
+          swift build --package-path Services/VaultService
+          swift test --package-path Services/VaultService
 
   repo-checks:
     runs-on: macos-15
