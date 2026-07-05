@@ -58,10 +58,13 @@ TOKEN_RESET_TIMES = ["02:00", "06:00", "14:00", "18:00", "23:00"]
 TOKEN_ERROR_PATTERNS = [
     "token limit",
     "usage limit",
+    "session limit",
     "rate limit",
     "quota exceeded",
     "try again later",
     "too many requests",
+    '"api_error_status":429',
+    '"api_error_status": 429',
 ]
 
 # =========================================================
