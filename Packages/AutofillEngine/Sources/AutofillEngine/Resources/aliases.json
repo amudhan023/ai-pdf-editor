@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "entries": [
+    { "vault_path": "identity.legal_name.first", "labels": {
+      "en": ["first name", "given name", "forename", "fname"],
+      "es": ["nombre"], "fr": ["prénom"], "de": ["vorname"], "pt": ["nome"] } },
+    { "vault_path": "identity.legal_name.middle", "labels": {
+      "en": ["middle name", "middle initial", "mi"] } },
+    { "vault_path": "identity.legal_name.last", "labels": {
+      "en": ["last name", "surname", "family name", "lname"],
+      "es": ["apellido"], "fr": ["nom de famille"], "de": ["nachname"], "pt": ["sobrenome"] } },
+    { "vault_path": "identity.preferred_name", "labels": {
+      "en": ["preferred name", "goes by", "nickname"] } },
+    { "vault_path": "identity.date_of_birth", "labels": {
+      "en": ["date of birth", "dob", "birth date", "birthdate"],
+      "es": ["fecha de nacimiento"], "fr": ["date de naissance"], "de": ["geburtsdatum"], "pt": ["data de nascimento"] } },
+    { "vault_path": "identity.place_of_birth", "labels": {
+      "en": ["place of birth", "birthplace", "city of birth"] } },
+    { "vault_path": "identity.nationality", "labels": {
+      "en": ["nationality", "citizenship"] } },
+    { "vault_path": "identity.ssn", "labels": {
+      "en": ["ssn", "social security number", "social security no"] } },
+    { "vault_path": "identity.passport.number", "labels": {
+      "en": ["passport number", "passport no"] } },
+    { "vault_path": "identity.passport.issuing_country", "labels": {
+      "en": ["passport issuing country", "country of issuance"] } },
+    { "vault_path": "identity.passport.expiration_date", "labels": {
+      "en": ["passport expiration date", "passport expiry"] } },
+    { "vault_path": "identity.drivers_license.number", "labels": {
+      "en": ["drivers license number", "driver's license number", "dl number"] } },
+    { "vault_path": "identity.drivers_license.state", "labels": {
+      "en": ["drivers license state", "license issuing state"] } },
+    { "vault_path": "identity.drivers_license.expiration_date", "labels": {
+      "en": ["drivers license expiration date", "license expiry"] } },
+    { "vault_path": "contact.address.line1", "labels": {
+      "en": ["address", "street address", "address line 1", "addr1"],
+      "es": ["dirección"], "fr": ["adresse"], "de": ["adresse"], "pt": ["endereço"] } },
+    { "vault_path": "contact.address.line2", "labels": {
+      "en": ["address line 2", "apt/suite", "apartment number", "addr2"] } },
+    { "vault_path": "contact.address.city", "labels": {
+      "en": ["city", "town"],
+      "es": ["ciudad"], "fr": ["ville"], "de": ["stadt"], "pt": ["cidade"] } },
+    { "vault_path": "contact.address.state", "labels": {
+      "en": ["state", "state/province", "province"],
+      "es": ["estado"], "fr": ["état"], "de": ["bundesland"], "pt": ["estado"] } },
+    { "vault_path": "contact.address.postal_code", "labels": {
+      "en": ["zip code", "zip", "postal code"],
+      "es": ["código postal"], "fr": ["code postal"], "de": ["postleitzahl"], "pt": ["código postal"] } },
+    { "vault_path": "contact.address.country", "labels": {
+      "en": ["country"],
+      "es": ["país"], "fr": ["pays"], "de": ["land"], "pt": ["país"] } },
+    { "vault_path": "contact.phone.mobile", "labels": {
+      "en": ["mobile phone", "cell phone", "mobile number", "phone number", "tel"],
+      "es": ["teléfono móvil"], "fr": ["téléphone portable"], "de": ["handynummer"], "pt": ["telefone celular"] } },
+    { "vault_path": "contact.phone.home", "labels": {
+      "en": ["home phone", "home telephone"] } },
+    { "vault_path": "contact.phone.work", "labels": {
+      "en": ["work phone", "office phone", "business phone"] } },
+    { "vault_path": "contact.email.primary", "labels": {
+      "en": ["email", "email address", "e-mail"],
+      "es": ["correo electrónico"], "fr": ["adresse e-mail"], "de": ["e-mail-adresse"], "pt": ["endereço de e-mail"] } },
+    { "vault_path": "contact.email.secondary", "labels": {
+      "en": ["secondary email", "alternate email"] } },
+    { "vault_path": "employment.current.employer_name", "labels": {
+      "en": ["employer name", "employer", "company name", "current employer"] } },
+    { "vault_path": "employment.current.title", "labels": {
+      "en": ["job title", "title", "position", "occupation"] } },
+    { "vault_path": "employment.current.start_date", "labels": {
+      "en": ["employment start date", "start date", "date of hire"] } },
+    { "vault_path": "employment.income.annual", "labels": {
+      "en": ["annual income", "gross annual income", "yearly salary"] } },
+    { "vault_path": "education.highest.institution_name", "labels": {
+      "en": ["school name", "institution name", "university", "college"] } },
+    { "vault_path": "education.highest.degree", "labels": {
+      "en": ["degree", "degree type"] } },
+    { "vault_path": "education.highest.field_of_study", "labels": {
+      "en": ["field of study", "major"] } },
+    { "vault_path": "education.highest.graduation_date", "labels": {
+      "en": ["graduation date", "date of graduation"] } },
+    { "vault_path": "family.emergency_contact.name", "labels": {
+      "en": ["emergency contact name", "emergency contact"] } },
+    { "vault_path": "family.emergency_contact.phone", "labels": {
+      "en": ["emergency contact phone", "emergency contact number"] } },
+    { "vault_path": "financial.bank.account_last4", "labels": {
+      "en": ["bank account number", "account number", "last 4 of account"] } },
+    { "vault_path": "financial.bank.routing_number", "labels": {
+      "en": ["routing number", "aba routing number"] } },
+    { "vault_path": "financial.business.ein", "labels": {
+      "en": ["ein", "employer identification number", "tax id number"] } },
+    { "vault_path": "health.insurance.provider", "labels": {
+      "en": ["insurance provider", "health insurance company"] } },
+    { "vault_path": "health.insurance.policy_number", "labels": {
+      "en": ["insurance policy number", "policy number"] } },
+    { "vault_path": "health.physician.name", "labels": {
+      "en": ["physician name", "primary care physician", "doctor name"] } },
+    { "vault_path": "health.allergies", "labels": {
+      "en": ["allergies", "known allergies"] } },
+    { "vault_path": "licenses.professional.name", "labels": {
+      "en": ["professional license", "license type"] } },
+    { "vault_path": "licenses.professional.number", "labels": {
+      "en": ["professional license number", "license number"] } },
+    { "vault_path": "licenses.professional.expiration_date", "labels": {
+      "en": ["professional license expiration date", "license expiry date"] } },
+    { "vault_path": "travel.frequent_flyer.airline", "labels": {
+      "en": ["frequent flyer airline", "airline"] } },
+    { "vault_path": "travel.frequent_flyer.number", "labels": {
+      "en": ["frequent flyer number", "loyalty number"] } }
+  ]
+}

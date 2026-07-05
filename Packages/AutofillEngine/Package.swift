@@ -21,7 +21,8 @@ let package = Package(
                 .product(name: "VaultAPI", package: "VaultAPI"),
                 .product(name: "InferenceAPI", package: "InferenceAPI"),
                 .product(name: "PolicyKit", package: "PolicyKit"),
-                .product(name: "FormKnowledge", package: "FormKnowledge"),            ]
+                .product(name: "FormKnowledge", package: "FormKnowledge"),            ],
+            resources: [.process("Resources")]
         ),
         .testTarget(name: "AutofillEngineTests", dependencies: ["AutofillEngine"])
     ]
