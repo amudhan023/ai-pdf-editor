@@ -1,5 +1,7 @@
 # P1-10 — Vault CRUD, Provenance & History Lists
 
+**Owner:** claude-agent · **Branch:** task/P1-10-vault-crud-history · **Claimed:** 53502e2645d2efa403bb1f6b0445b6671a4fd472
+
 **Epic:** E8 · **Primary package:** `Packages/VaultStore` · **Complexity:** M · **Priority:** High
 
 ## Goal
