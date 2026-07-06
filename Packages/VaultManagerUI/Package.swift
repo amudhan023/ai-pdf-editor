@@ -9,13 +9,15 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../VaultAPI"),
-        .package(path: "../PolicyKit"),    ],
+        .package(path: "../PolicyKit")
+    ],
     targets: [
         .target(
             name: "VaultManagerUI",
             dependencies: [
                 .product(name: "VaultAPI", package: "VaultAPI"),
-                .product(name: "PolicyKit", package: "PolicyKit"),            ]
+                .product(name: "PolicyKit", package: "PolicyKit")
+            ]
         ),
         .testTarget(name: "VaultManagerUITests", dependencies: ["VaultManagerUI"])
     ]
