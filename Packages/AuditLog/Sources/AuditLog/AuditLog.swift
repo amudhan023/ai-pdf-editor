@@ -28,7 +28,15 @@ public struct AuditEntry: Codable, Sendable {
     }
 
     // Construct and compute hash using canonical JSON (sorted keys)
-    public init(id: UUID = UUID(), timestamp: Date = Date(), eventType: AuditEventType, fieldPath: String? = nil, ticketID: String? = nil, metadata: [String: String]? = nil, prevHashHex: String?) throws {
+    public init(
+        id: UUID = UUID(),
+        timestamp: Date = Date(),
+        eventType: AuditEventType,
+        fieldPath: String? = nil,
+        ticketID: String? = nil,
+        metadata: [String: String]? = nil,
+        prevHashHex: String?
+    ) throws {
         self.id = id
         self.timestamp = timestamp
         self.eventType = eventType
@@ -38,7 +46,13 @@ public struct AuditEntry: Codable, Sendable {
         self.prevHashHex = prevHashHex
 
         // compute hash
-        let payload = try AuditEntry.hashPayload(id: id, timestamp: timestamp, eventType: eventType, fieldPath: fieldPath, ticketID: ticketID, metadata: metadata, prevHashHex: prevHashHex)
+        let payload = try AuditEntry.hashPayload(id: id,
+                                                 timestamp: timestamp,
+                                                 eventType: eventType,
+                                                 fieldPath: fieldPath,
+                                                 ticketID: ticketID,
+                                                 metadata: metadata,
+                                                 prevHashHex: prevHashHex)
         self.hashHex = AuditEntry.sha256Hex(payload)
     }
 
@@ -185,7 +199,13 @@ public final class AuditLogStore {
         var prev: String? = nil
         for e in entries {
             do {
-                let payload = try AuditEntry.hashPayload(id: e.id, timestamp: e.timestamp, eventType: e.eventType, fieldPath: e.fieldPath, ticketID: e.ticketID, metadata: e.metadata, prevHashHex: e.prevHashHex)
+                let payload = try AuditEntry.hashPayload(id: e.id,
+                                                        timestamp: e.timestamp,
+                                                        eventType: e.eventType,
+                                                        fieldPath: e.fieldPath,
+                                                        ticketID: e.ticketID,
+                                                        metadata: e.metadata,
+                                                        prevHashHex: e.prevHashHex)
                 let expected = AuditEntry.sha256Hex(payload)
                 if expected != e.hashHex { return false }
                 if e.prevHashHex != prev { return false }
