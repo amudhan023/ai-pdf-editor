@@ -28,7 +28,12 @@ public enum TicketVerificationFailure: Error, Sendable, Equatable {
 /// through this decorator, never the bare store — see
 /// `Packages/VaultStore/CLAUDE.md`.
 public actor TicketVerifyingVaultClient<Inner: VaultClient>: VaultClient {
-    private let inner: Inner
+    // `internal` rather than `private`: the `Inner == SQLCipherVaultStore`
+    // extensions in Operations/ (batch accept-set, history date-range
+    // queries — capabilities beyond the frozen `VaultClient` seam,
+    // ADR-007) need `inner` and `verify` to add the same signature/replay
+    // check in front of those calls.
+    let inner: Inner
     private let signingKey: SymmetricKey
     private let replayGuard: ReplayGuard
 
@@ -112,7 +117,7 @@ public actor TicketVerifyingVaultClient<Inner: VaultClient>: VaultClient {
         try await inner.cryptoShred(person, ticket: ticket)
     }
 
-    private func verify(_ ticket: PolicyTicket) async throws {
+    func verify(_ ticket: PolicyTicket) async throws {
         switch TicketVerifier.verify(ticket, signingKey: signingKey) {
         case .success:
             break

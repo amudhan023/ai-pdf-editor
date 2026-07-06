@@ -19,9 +19,20 @@ public actor SQLCipherVaultStore: VaultClient {
     private let lockController: VaultLockController
     private var dbPool: DatabasePool?
 
+    /// Vault access events (P1-10) — see `VaultAccessEvent`'s doc comment.
+    /// A narrow `AsyncStream` per package convention (`VaultLockEvent`'s
+    /// precedent), not a general-purpose event bus (P1-15's scope).
+    public nonisolated let accessEvents: AsyncStream<VaultAccessEvent>
+    private let accessEventContinuation: AsyncStream<VaultAccessEvent>.Continuation
+
     public init(dbURL: URL, lockController: VaultLockController) {
         self.dbURL = dbURL
         self.lockController = lockController
+        (accessEvents, accessEventContinuation) = AsyncStream.makeStream(of: VaultAccessEvent.self)
+    }
+
+    func emitAccess(_ operation: VaultOperation, person: PersonID, paths: [FieldPath] = [], ticket: PolicyTicket) {
+        accessEventContinuation.yield(VaultAccessEvent(operation: operation, personID: person, paths: paths, ticketID: ticket.id, at: Date()))
     }
 
     // MARK: - Lock lifecycle
@@ -61,7 +72,12 @@ public actor SQLCipherVaultStore: VaultClient {
         dbPool = pool
     }
 
-    private func openedPool() throws -> DatabasePool {
+    // `internal` rather than `private`: the Operations/ extensions
+    // (batch accept-set, history date-range queries) are additional
+    // capabilities on the concrete store beyond the frozen `VaultClient`
+    // seam (ADR-007), so they live in their own files but still need this
+    // and `checkTicket` below.
+    func openedPool() throws -> DatabasePool {
         guard let dbPool else { throw VaultError.vaultLocked }
         return dbPool
     }
@@ -71,6 +87,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func createPerson(_ person: Person, ticket: PolicyTicket) async throws -> Person {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .write, person: person.id)
+        emitAccess(.write, person: person.id, ticket: ticket)
         try await pool.write { db in
             try PersonRow(person).insert(db)
         }
@@ -80,6 +97,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func person(_ id: PersonID, ticket: PolicyTicket) async throws -> Person {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .read, person: id)
+        emitAccess(.read, person: id, ticket: ticket)
         guard let row = try await pool.read({ db in try PersonRow.fetchOne(db, key: id.value.uuidString) }) else {
             throw VaultError.personNotFound(id)
         }
@@ -89,6 +107,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func deletePerson(_ id: PersonID, ticket: PolicyTicket) async throws {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .write, person: id)
+        emitAccess(.write, person: id, ticket: ticket)
         let deleted = try await pool.write { db in try PersonRow.deleteOne(db, key: id.value.uuidString) }
         guard deleted else { throw VaultError.personNotFound(id) }
     }
@@ -98,6 +117,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func writeField(_ field: ProfileField, ticket: PolicyTicket) async throws {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .write, person: field.personID, path: field.path)
+        emitAccess(.write, person: field.personID, paths: [field.path], ticket: ticket)
         let row = try ProfileFieldRow(field)
         try await pool.write { db in
             guard try PersonRow.filter(key: field.personID.value.uuidString).fetchCount(db) > 0 else {
@@ -112,6 +132,7 @@ public actor SQLCipherVaultStore: VaultClient {
         for path in paths {
             try checkTicket(ticket, operation: .read, person: person, path: path)
         }
+        emitAccess(.read, person: person, paths: paths, ticket: ticket)
         return try await pool.read { db in
             try paths.map { path in
                 guard let row = try ProfileFieldRow.fetchOne(
@@ -128,6 +149,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func deleteField(_ path: FieldPath, for person: PersonID, ticket: PolicyTicket) async throws {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .write, person: person, path: path)
+        emitAccess(.write, person: person, paths: [path], ticket: ticket)
         let deleted = try await pool.write { db in
             try ProfileFieldRow.deleteOne(db, key: ["personID": person.value.uuidString, "path": path.description])
         }
@@ -139,6 +161,7 @@ public actor SQLCipherVaultStore: VaultClient {
         for path in paths {
             try checkTicket(ticket, operation: .compareRead, person: person, path: path)
         }
+        emitAccess(.compareRead, person: person, paths: paths, ticket: ticket)
         return try await pool.read { db in
             try paths.map { path in
                 guard let row = try ProfileFieldRow.fetchOne(
@@ -164,6 +187,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func writeHistoryEntry(_ entry: HistoryEntry, ticket: PolicyTicket) async throws {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .write, person: entry.personID)
+        emitAccess(.write, person: entry.personID, ticket: ticket)
         let entryRow = HistoryEntryRow(entry)
         let fieldRows = try entry.fields.map { try HistoryFieldEntryRow(historyEntryID: entry.id.uuidString, field: $0) }
         try await pool.write { db in
@@ -181,6 +205,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func historyEntries(category: HistoryCategory, for person: PersonID, ticket: PolicyTicket) async throws -> [HistoryEntry] {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .read, person: person)
+        emitAccess(.read, person: person, ticket: ticket)
         return try await pool.read { db in
             let entryRows = try HistoryEntryRow
                 .filter(Column("personID") == person.value.uuidString && Column("category") == category.rawValue)
@@ -198,6 +223,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func deleteHistoryEntry(_ id: HistoryEntry.ID, for person: PersonID, ticket: PolicyTicket) async throws {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .write, person: person)
+        emitAccess(.write, person: person, ticket: ticket)
         let deleted = try await pool.write { db in try HistoryEntryRow.deleteOne(db, key: id.uuidString) }
         guard deleted else { throw VaultError.historyEntryNotFound(id) }
     }
@@ -207,6 +233,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func addRelationship(_ edge: RelationshipEdge, ticket: PolicyTicket) async throws {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .write, person: edge.from)
+        emitAccess(.write, person: edge.from, ticket: ticket)
         try await pool.write { db in
             guard try PersonRow.filter(key: edge.from.value.uuidString).fetchCount(db) > 0 else {
                 throw VaultError.personNotFound(edge.from)
@@ -221,6 +248,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func relationships(for person: PersonID, ticket: PolicyTicket) async throws -> [RelationshipEdge] {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .read, person: person)
+        emitAccess(.read, person: person, ticket: ticket)
         return try await pool.read { db in
             let rows = try RelationshipEdgeRow
                 .filter(Column("fromPersonID") == person.value.uuidString || Column("toPersonID") == person.value.uuidString)
@@ -232,6 +260,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func removeRelationship(_ edge: RelationshipEdge, ticket: PolicyTicket) async throws {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .write, person: edge.from)
+        emitAccess(.write, person: edge.from, ticket: ticket)
         let row = RelationshipEdgeRow(edge)
         let deleted = try await pool.write { db in
             try RelationshipEdgeRow
@@ -256,6 +285,7 @@ public actor SQLCipherVaultStore: VaultClient {
     public func cryptoShred(_ person: PersonID, ticket: PolicyTicket) async throws {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .cryptoShred, person: person)
+        emitAccess(.cryptoShred, person: person, ticket: ticket)
         let deleted = try await pool.write { db in try PersonRow.deleteOne(db, key: person.value.uuidString) }
         guard deleted else { throw VaultError.personNotFound(person) }
     }
@@ -268,7 +298,7 @@ public actor SQLCipherVaultStore: VaultClient {
     // (ADR-007) for an internal helper — not worth it for this size, and
     // VaultConformanceSuite already pins the contract both must satisfy.
 
-    private func checkTicket(
+    func checkTicket(
         _ ticket: PolicyTicket,
         operation: VaultOperation,
         person: PersonID,

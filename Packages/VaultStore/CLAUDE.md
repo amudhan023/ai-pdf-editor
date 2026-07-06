@@ -1,6 +1,6 @@
 # VaultStore
 
-**Purpose:** Vault.xpc service implementation: SQLCipher store (`SQLCipherVaultStore`), Secure Enclave–wrapped key hierarchy (`KeyHierarchy/`), mlock'd lock state (`Lock/`), encrypted attachments (`Attachments/`), and rolling encrypted backups (`Backup/`). Every privileged call requires a verified `PolicyTicket`. Decrypted values are `SecureBytes` only. Sibling `Services/VaultService` is the thin XPC executable skeleton over this package (real `.xpc` bundle packaging is P0-07's job).
+**Purpose:** Vault.xpc service implementation: SQLCipher store (`SQLCipherVaultStore`), Secure Enclave–wrapped key hierarchy (`KeyHierarchy/`), mlock'd lock state (`Lock/`), encrypted attachments (`Attachments/`), rolling encrypted backups (`Backup/`), and vault-data operations beyond the frozen `VaultClient` seam (`Operations/` — batch accept-set writes, history date-range queries). Every privileged call requires a verified `PolicyTicket`. Decrypted values are `SecureBytes` only. Sibling `Services/VaultService` is the thin XPC executable skeleton over this package (real `.xpc` bundle packaging is P0-07's job).
 
 **Allowed imports:** Foundation, VaultAPI, PolicyKit, Platform, Security, CryptoKit, GRDB (see `Scripts/import-allowlist.txt` — the enforced source of truth). Tests may also import XCTest.
 
@@ -9,7 +9,8 @@
 **Invariants:**
 - No network APIs, ever (Constitution Art. 1/11; CLAUDE.md §7).
 - No logging of vault values or document content (CLAUDE.md §16) — enforced by `NoPlaintextLoggingTests`' source-grep guard.
-- Real callers go through `TicketVerifyingVaultClient` (adds HMAC verification + replay rejection), never the bare `SQLCipherVaultStore` — the bare store only enforces the structural ticket contract `VaultConformanceSuite` checks (same split rationale as that suite's own doc comment).
+- Real callers go through `TicketVerifyingVaultClient` (adds HMAC verification + replay rejection), never the bare `SQLCipherVaultStore` — the bare store only enforces the structural ticket contract `VaultConformanceSuite` checks (same split rationale as that suite's own doc comment). `Operations/` extensions (e.g. `acceptFields`) are not part of the `VaultClient` protocol, so each one gets a matching `TicketVerifyingVaultClient where Inner == SQLCipherVaultStore` wrapper in the same file — never add a store-only capability without its verifying twin.
+- Person deletion (`deletePerson`/`cryptoShred`) cascades to `profileField`/`historyEntry`/`historyFieldEntry`/`relationshipEdge` via `ON DELETE CASCADE` (`VaultMigrations` v1) plus `PRAGMA foreign_keys = ON` — cascade behavior is structural (the schema), not application logic; don't add manual cascade-delete code paths.
 - `VaultLockController` (`Lock/`) owns the lock state machine (locked/unlocking/unlocked), `VaultDidLock`/`VaultDidUnlock` domain events, idle-timeout auto-lock, and the auth-freshness signal `PolicyKit.AuthFreshness` reads — see `docs/specs/vault-security-ux.md` for the full behavior matrix. Key material never survives a `lock()` call: all four `LockedBytes` (master + 3 derived keys) are zeroized before `phase` flips back to `.locked`.
 - Follow root CLAUDE.md precedence chain; task files cannot override §7/§8.
 
