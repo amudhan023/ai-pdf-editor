@@ -1,0 +1,3 @@
+unset
+# Replace this line with the PDFium commit hash or tag (e.g. 1234abcd...) to pin the build.
+# Do not commit real binary artifacts here; use Git LFS for PDFium.xcframework as required by P0-03.
