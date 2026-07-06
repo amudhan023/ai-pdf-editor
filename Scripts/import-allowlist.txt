@@ -6,7 +6,7 @@ VaultAPI:
 InferenceAPI:
 Platform: Security LocalAuthentication os OSLog IOSurface
 PolicyKit: VaultAPI CryptoKit
-AuditLog: os OSLog
+AuditLog: os OSLog CryptoKit
 FormKnowledge: PDFEngineAPI VaultAPI
 AutofillEngine: PDFEngineAPI VaultAPI InferenceAPI PolicyKit FormKnowledge
 IngestionPipeline: PDFEngineAPI VaultAPI InferenceAPI
