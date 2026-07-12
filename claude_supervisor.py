@@ -62,6 +62,20 @@ If no valid task exists, exit immediately.
 RETRY_DELAY_SECONDS = 30
 SUCCESS_DELAY_SECONDS = 2
 
+# A run that exits 0 but produces no new commit is not a completed task - it's
+# the bootstrap prompt's "no valid task exists, exit immediately" path (empty
+# or fully-blocked backlog), which used to be treated as SUCCESS and re-looped
+# after only SUCCESS_DELAY_SECONDS - a near-infinite full-Claude-invocation
+# spin once the backlog drains. Back off much further in that case instead.
+NO_OP_DELAY_SECONDS = 300
+
+# A real (non-token-limit) failure that keeps recurring - broken env, a task
+# that can't pass verify.sh, etc. - has no natural "try again later" signal
+# the way a token limit does. Retrying it forever at a flat 30s is the same
+# class of silent waste the token-limit-detection gap already cost ~3 hours
+# once (see TOKEN_ERROR_PATTERNS below). Stop and surface it instead.
+MAX_CONSECUTIVE_FAILURES = 5
+
 TOKEN_RESET_TIMES = ["02:00", "06:00", "14:00", "18:00", "23:00"]
 
 # Match on the exact wording Claude's CLI has been observed to use, not a guess at what
@@ -95,6 +109,24 @@ def log(msg):
 
     with open(os.path.join(LOG_DIR, "supervisor.log"), "a") as f:
         f.write(line + "\n")
+
+
+def git_head():
+    """Current commit SHA of PROJECT_DIR's checked-out ref, or None on any
+    failure. Used to tell a real completed task (produces a commit) apart
+    from a no-op run (empty/blocked backlog, or a task that made no
+    progress) - both exit 0, so exit code alone can't distinguish them."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_DIR,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.stdout.strip() if result.returncode == 0 else None
+    except Exception:
+        return None
 
 
 def load_state():
@@ -259,6 +291,51 @@ def run_claude(state):
         return 1, str(e)
 
 # =========================================================
+# OUTCOME CLASSIFICATION
+# =========================================================
+
+def record_outcome(state, exit_code, head_before, head_after):
+    """Classifies one run, updates the consecutive-no-op/consecutive-failure
+    counters in `state`, and returns how long to sleep before the next run -
+    or None to signal the supervisor should stop entirely.
+
+    exit_code == 0 alone does not mean a task was completed: the bootstrap
+    prompt's "no valid task exists, exit immediately" path also exits 0. The
+    only reliable signal that real work happened is a new commit (the task
+    workflow is commit-per-task by design), so a exit-0 run whose HEAD didn't
+    move is treated as a no-op and backed off harder, not as success.
+    """
+    if exit_code == 0:
+        made_progress = bool(head_after) and head_after != head_before
+        if made_progress:
+            log("✅ Task completed (single-task contract fulfilled)")
+            state["consecutive_no_op_runs"] = 0
+        else:
+            state["consecutive_no_op_runs"] += 1
+            log(
+                "💤 No commits produced (empty/blocked backlog, or a no-op run) - "
+                f"consecutive no-op runs: {state['consecutive_no_op_runs']}"
+            )
+        state["consecutive_failures"] = 0
+        save_state(state)
+        return SUCCESS_DELAY_SECONDS if made_progress else NO_OP_DELAY_SECONDS
+
+    state["consecutive_failures"] += 1
+    save_state(state)
+
+    if state["consecutive_failures"] >= MAX_CONSECUTIVE_FAILURES:
+        log(
+            f"🛑 {state['consecutive_failures']} consecutive failures - stopping the "
+            f"supervisor for human review instead of retrying forever. "
+            f"Check {LOG_DIR}/run-{state['runs']}.log for the latest failure."
+        )
+        return None
+
+    log(f"⚠️ Failure detected (consecutive: {state['consecutive_failures']}), retrying...")
+    return RETRY_DELAY_SECONDS
+
+
+# =========================================================
 # MAIN LOOP
 # =========================================================
 
@@ -273,11 +350,14 @@ def main():
     state = load_state()
     state.setdefault("runs", 0)
     state.setdefault("token_hits", 0)
+    state.setdefault("consecutive_no_op_runs", 0)
+    state.setdefault("consecutive_failures", 0)
 
     while True:
         state["runs"] += 1
         save_state(state)
 
+        head_before = git_head()
         exit_code, output = run_claude(state)
 
         with open(os.path.join(LOG_DIR, f"run-{state['runs']}.log"), "w") as f:
@@ -296,27 +376,19 @@ def main():
             if result is not None:
                 exit_code, output = result
                 log(f"Claude exit code: {exit_code}")
-                if exit_code == 0:
-                    log("✅ Task completed (single-task contract fulfilled)")
-                    time.sleep(SUCCESS_DELAY_SECONDS)
-                else:
-                    log("⚠️ Failure detected, retrying...")
-                    time.sleep(RETRY_DELAY_SECONDS)
+                sleep_seconds = record_outcome(state, exit_code, head_before, git_head())
+                if sleep_seconds is None:
+                    return
+                time.sleep(sleep_seconds)
             continue
 
         # -----------------------------
-        # SUCCESS PATH
+        # OUTCOME (success / no-op / failure)
         # -----------------------------
-        if exit_code == 0:
-            log("✅ Task completed (single-task contract fulfilled)")
-            time.sleep(SUCCESS_DELAY_SECONDS)
-            continue
-
-        # -----------------------------
-        # FAILURE PATH
-        # -----------------------------
-        log("⚠️ Failure detected, retrying...")
-        time.sleep(RETRY_DELAY_SECONDS)
+        sleep_seconds = record_outcome(state, exit_code, head_before, git_head())
+        if sleep_seconds is None:
+            return
+        time.sleep(sleep_seconds)
 
 
 if __name__ == "__main__":
