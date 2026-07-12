@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import shutil
 import subprocess
 import time
 import json
@@ -61,6 +62,20 @@ If no valid task exists, exit immediately.
 
 RETRY_DELAY_SECONDS = 30
 SUCCESS_DELAY_SECONDS = 2
+
+# The task workflow (tasks/README.md) is trunk-based off main - every task
+# branch, PR, and merge assumes it. Starting the loop from anywhere else
+# means every branch it creates is based on the wrong tree.
+REQUIRED_START_BRANCH = "main"
+
+REQUIRED_COMMANDS = ["claude", "git"]
+
+# The supervisor's own bookkeeping - state.json plus a fresh run-N.log every
+# iteration - churns the working tree by design on every single run, so a
+# working-tree-cleanliness preflight check has to exclude it; otherwise the
+# check would fail on literally every restart, including the very first one
+# after a previous run.
+SUPERVISOR_OWN_PATH_PREFIX = ".claude-supervisor/"
 
 # A run that exits 0 but produces no new commit is not a completed task - it's
 # the bootstrap prompt's "no valid task exists, exit immediately" path (empty
@@ -150,6 +165,95 @@ def validate_project():
     for f in required:
         if not os.path.exists(os.path.join(PROJECT_DIR, f)):
             raise Exception(f"Missing required path: {f}")
+
+
+# =========================================================
+# PREFLIGHT (run once, before the loop starts)
+# =========================================================
+#
+# Each check raises on failure - preflight is meant to fail loudly and stop
+# before spawning a single Claude invocation, not to warn and continue.
+# Handing an unattended, bypassPermissions loop a wrong-branch or dirty
+# working tree is worse than refusing to start.
+
+def check_required_commands():
+    missing = [cmd for cmd in REQUIRED_COMMANDS if shutil.which(cmd) is None]
+    if missing:
+        raise Exception(
+            f"Missing required command(s) on PATH: {', '.join(missing)}. "
+            "Install them before starting the supervisor."
+        )
+
+
+def _run_git(*args):
+    return subprocess.run(
+        ["git", *args], cwd=PROJECT_DIR, capture_output=True, text=True
+    )
+
+
+def check_git_repo():
+    result = _run_git("rev-parse", "--is-inside-work-tree")
+    if result.returncode != 0 or result.stdout.strip() != "true":
+        raise Exception(f"{PROJECT_DIR} is not a git repository.")
+
+
+def check_git_branch():
+    result = _run_git("rev-parse", "--abbrev-ref", "HEAD")
+    if result.returncode != 0:
+        raise Exception("Could not determine the current git branch.")
+    branch = result.stdout.strip()
+    if branch != REQUIRED_START_BRANCH:
+        raise Exception(
+            f"Expected to start from '{REQUIRED_START_BRANCH}', currently on "
+            f"'{branch}'. `git checkout {REQUIRED_START_BRANCH}` first - every "
+            "task branch the loop creates is based on whatever's checked out now."
+        )
+
+
+def check_git_clean():
+    result = _run_git("status", "--porcelain")
+    if result.returncode != 0:
+        raise Exception(f"git status failed:\n{result.stderr}")
+    dirty = [
+        line for line in result.stdout.splitlines()
+        if not line[3:].startswith(SUPERVISOR_OWN_PATH_PREFIX)
+    ]
+    if dirty:
+        raise Exception(
+            "Working tree has uncommitted changes outside "
+            f"{SUPERVISOR_OWN_PATH_PREFIX} - commit, stash, or discard them "
+            "before starting an unattended loop:\n" + "\n".join(dirty)
+        )
+
+
+def sync_with_remote_main():
+    """Fetches and fast-forwards so the loop starts from the real current
+    tip of origin/main, not whatever happened to be checked out when the
+    terminal was opened. Fails loudly rather than silently working from a
+    stale or diverged base."""
+    log(f"🔄 Syncing with origin/{REQUIRED_START_BRANCH}...")
+    fetch = _run_git("fetch", "origin", REQUIRED_START_BRANCH)
+    if fetch.returncode != 0:
+        raise Exception(f"git fetch origin {REQUIRED_START_BRANCH} failed:\n{fetch.stderr}")
+
+    merge = _run_git("merge", "--ff-only", f"origin/{REQUIRED_START_BRANCH}")
+    if merge.returncode != 0:
+        raise Exception(
+            f"Local {REQUIRED_START_BRANCH} could not fast-forward to "
+            f"origin/{REQUIRED_START_BRANCH} (has it diverged with unpushed "
+            f"commits?):\n{merge.stderr}"
+        )
+    log(f"✅ {REQUIRED_START_BRANCH} is up to date ({git_head()})")
+
+
+def preflight():
+    log("🔎 Running preflight checks...")
+    check_required_commands()
+    check_git_repo()
+    check_git_branch()
+    check_git_clean()
+    sync_with_remote_main()
+    log("✅ Preflight checks passed - starting the task loop.")
 
 
 # =========================================================
@@ -346,6 +450,8 @@ def main():
     log("===================================")
     log(" Vaultform Claude Supervisor ")
     log("===================================")
+
+    preflight()
 
     state = load_state()
     state.setdefault("runs", 0)
