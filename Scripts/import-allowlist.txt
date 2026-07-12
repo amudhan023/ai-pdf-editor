@@ -15,6 +15,6 @@ AutofillSession: AutofillEngine VaultAPI PolicyKit PDFEngineAPI SwiftUI AppKit o
 IngestionSession: IngestionPipeline VaultAPI PolicyKit SwiftUI AppKit os OSLog
 VaultManagerUI: VaultAPI PolicyKit SwiftUI AppKit os OSLog
 PrivacyDashboard: AuditLog VaultAPI SwiftUI AppKit os OSLog
-DocEngineHost: PDFEngineAPI Platform os OSLog
+DocEngineHost: PDFEngineAPI Platform os OSLog CPDFium PDFium
 InferenceHost: InferenceAPI Platform CryptoKit os OSLog NaturalLanguage
 VaultStore: VaultAPI PolicyKit Platform Security CryptoKit GRDB os OSLog

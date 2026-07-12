@@ -1,6 +1,6 @@
 # E-004 — PDFium standard build is infeasible on this machine (P0-03 blocked)
 
-**Raised by:** P0-03 · **Severity:** blocks P0-03 (and its dependents P0-06, P0-07) — environment/resource limit, not a code defect
+**Raised by:** P0-03 · **Severity:** blocks P0-03 (and its dependents P0-06, P0-07) — environment/resource limit, not a code defect · **Status: RESOLVED (2026-07-11) — see Resolution below**
 
 ## Evidence
 - Installed `git-lfs` and `ninja` via Homebrew (both succeeded, small).
@@ -26,3 +26,11 @@ Proceeding with Option C: P0-03/P0-06/P0-07 stay in `tasks/backlog/`, unclaimed,
 - **Option B was attempted as far as staging, then correctly stopped for human sign-off.** Concretely done (all in an isolated `git worktree`, nothing committed to `main`): downloaded `bblanchon/pdfium-binaries` release `chromium/7920` (PDFium 151.0.7920.0), `pdfium-mac-univ.tgz`, SHA256 `5bd21bb44055dabb6daa9e6379c0c64e194d475df886af009cf650d1c0aedda6`; confirmed via its `args.gn` that this build has `pdf_enable_v8=false` and `pdf_enable_xfa=false` — **no JavaScript engine at all is vendored**, which structurally reinforces CLAUDE.md §7.5 ("no JS execution from PDFs") rather than merely relying on us never calling into it; packaged into a `PDFium.xcframework` (universal arm64+x86_64, confirmed via `lipo -info`).
 - **Key lesson for whoever resumes this**: even though ADR-008/ADR-009 make ordinary new-dependency PRs self-mergeable once an ADR is recorded and CI is green, there is a **separate, harness-level permission control** that blocks an agent from autonomously vendoring a compiled third-party binary it selected on its own — it requires the human to explicitly confirm trust in *that specific source* first, independent of the ADR/CI process. This is not the same gate as Article 7's ADR requirement; it fired even with the ADR not yet written. Don't try to work around it — surface the exact source/checksum/build-flags evidence (as above) and ask.
 - **Status:** paused, awaiting the human decision on which binary source to trust (or a decision to pursue Option A on a different machine instead). Nothing has been vendored into `main`.
+
+## Resolution (2026-07-11)
+
+Human operator explicitly approved Option B against the exact staged evidence above (same release, same SHA256) via `AskUserQuestion`. Re-downloaded the asset fresh and re-verified the checksum matched before proceeding (`5bd21bb44055dabb6daa9e6379c0c64e194d475df886af009cf650d1c0aedda6` — unchanged). Vendored into `ThirdParty/pdfium/prebuilt/PDFium.xcframework` via Git LFS on `task/P0-03-pdfium-binaries`; full decision record in `docs/adr/ADR-001-pdfium-source-and-pin.md`.
+
+One fix needed beyond straight vendoring: the upstream dylib's install name is `./libpdfium.dylib` (a relative path baked in at bblanchon's own build), which dyld cannot resolve once the binary is consumed from a different working directory — every link succeeded but every *test run* failed with `Library not loaded: ./libpdfium.dylib`. Fixed via `install_name_tool -id @rpath/libpdfium.dylib` plus an ad-hoc re-sign (`codesign --force --sign -`) on the vendored copy; documented as a gotcha in `Packages/DocEngineHost/CLAUDE.md` for whoever next regenerates the xcframework from a fresh upstream download.
+
+`DocEngineHost`'s `binaryTarget` path bug (a separate, unrelated defect from an earlier broken attempt at this same integration — see `docs/ENGINEERING_AUDIT_2026-07-11.md` finding C-2) is fixed in the same PR. First P0-03 acceptance criterion (link + `FPDF_InitLibrary`/`FPDF_GetLastError` call succeeds) is met and covered by `DocEngineHostTests.testPDFiumLibraryLinksAndInitializes`, run against the real vendored library, not a fake. See `tasks/in-progress/P0-03-pdfium-build.md`'s Status section for exactly what's done vs. still open. E-004 itself is closed; remaining P0-03 scope continues as normal task work, no longer escalation-blocked.

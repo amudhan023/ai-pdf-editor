@@ -1,0 +1,7 @@
+bblanchon/pdfium-binaries chromium/7920 (PDFium 151.0.7920.0)
+source: https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium%2F7920
+asset:  pdfium-mac-univ.tgz
+sha256: 5bd21bb44055dabb6daa9e6379c0c64e194d475df886af009cf650d1c0aedda6
+
+See docs/adr/ADR-001-pdfium-source-and-pin.md for the sourcing decision
+and ThirdParty/pdfium/README.md for the upgrade playbook.
