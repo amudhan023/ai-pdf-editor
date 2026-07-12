@@ -1,6 +1,8 @@
 # P1-15 — Audit Log (Hash-Chained, Append-Only)
 
-**Owner:** claude-agent · **Branch:** task/P1-15-audit-log · **Claimed:** 84f384a10ff55b66bfa841e1a72db78c3619396e
+**Owner:** claude-agent · **Branch:** task/P1-15-audit-log-gaps · **Claimed:** 84f384a10ff55b66bfa841e1a72db78c3619396e
+
+**Note:** an earlier PR #44 (merged 2026-07-06) implemented the base chain/rotation store but only covered a subset of this task's requirements (no archival, filtering, metadata value-safety, or event-bus subscription seam) and its own "move to done" commit was left on an orphaned branch, never merged to `main` — that's why this task file was still in `backlog/` for this iteration to claim. This PR finishes the remaining requirements.
 
 **Epic:** E14 · **Primary package:** `Packages/AuditLog` `[INTEGRATION]` (+ `Packages/Platform`) · **Complexity:** M · **Priority:** High
 
