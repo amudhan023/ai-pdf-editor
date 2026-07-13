@@ -25,6 +25,10 @@
 #                          XPCLatencyBench executable (P0-05/ADR-002 baseline)
 #                          - same-process anonymous-listener calls, so it
 #                          excludes real cross-process Mach IPC overhead.
+#   tile-scroll            TileCache/TileGrid cache-hit-vs-miss scroll bench
+#                          (P1-01) via Packages/DocumentSession's
+#                          TileScrollBench executable - see that target's
+#                          header comment for what it does and doesn't cover.
 #
 # Usage:
 #   Scripts/bench.sh <suite>       run one suite, print its JSON result
@@ -204,11 +208,19 @@ xpc_latency() {
         || jq -n '{suite:"xpc-latency",status:"fail",reason:"XPCLatencyBench did not run"}'
 }
 
+# ---------------------------------------------------------------------------
+# tile-scroll (P1-01): TileCache/TileGrid cache-hit-vs-miss scroll bench.
+# ---------------------------------------------------------------------------
+tile_scroll() {
+    swift run --package-path "$ROOT/Packages/DocumentSession" -q TileScrollBench 2>/dev/null \
+        || jq -n '{suite:"tile-scroll",status:"fail",reason:"TileScrollBench did not run"}'
+}
+
 run_all() {
     local rc=0
     local out="["
     local first=true
-    for fn in corpus_open manifest_validate field_mapping generator_determinism render_latency xpc_latency; do
+    for fn in corpus_open manifest_validate field_mapping generator_determinism render_latency xpc_latency tile_scroll; do
         local r
         r="$($fn)" || rc=1
         [ "$first" = true ] || out+=","
@@ -274,10 +286,11 @@ case "${1:-}" in
     generator-determinism) generator_determinism "${2:-42}" ;;
     render-latency) render_latency ;;
     xpc-latency) xpc_latency ;;
+    tile-scroll) tile_scroll ;;
     --all) run_all ;;
     --self-test) self_test ;;
     "")
-        echo "usage: bench.sh <corpus-open|manifest-validate|field-mapping|generator-determinism|render-latency|xpc-latency> | --all | --self-test" >&2
+        echo "usage: bench.sh <corpus-open|manifest-validate|field-mapping|generator-determinism|render-latency|xpc-latency|tile-scroll> | --all | --self-test" >&2
         exit 2
         ;;
     *)
