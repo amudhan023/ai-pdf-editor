@@ -2,8 +2,6 @@
 
 **Epic:** E3 · **Primary package:** `App/` + `Packages/DocumentSession` `[INTEGRATION]` · **Complexity:** M · **Priority:** Critical
 
-**Owner:** claude-agent · **Branch:** task/P0-07-shell-viewer-app · **Claimed:** 615ef5bb7587093fe17b835c273af70236a6c083
-
 ## Goal
 A launchable app: open a PDF via dialog/drag-drop, display rendered pages in a window — the M0 demo and the substrate all viewer tasks extend.
 
