@@ -30,3 +30,19 @@ Discovered while wiring `Services/VaultService` into the same job for P1-08. The
 
 ## Documentation Updates
 - None beyond the workflow file itself.
+
+## Journal
+
+**Orient:** Read root CLAUDE.md, this task file, `.github/workflows/ci.yml` `services` job. Confirmed `Services/InferenceService` (Package.swift, Sources/, Tests/) exists and was genuinely missing from the `services` job — only DocEngineService and VaultService steps were present.
+
+**Plan:** Add a third step to the `services` job mirroring the DocEngineService/VaultService pattern (`swift build --package-path ... && swift test --package-path ...`), and remove the now-stale NOTE comment pointing at this task file since the gap it describes is closed. No frozen seam, entitlement, or new dependency involved — CI-config-only change, single file.
+
+**Implement:** Edited `.github/workflows/ci.yml`: added the `Scripts/verify.sh Services/InferenceService` step; removed the stale NOTE comment above the `services:` job key.
+
+**Verify:** `swift build --package-path Services/InferenceService` and `swift test --package-path Services/InferenceService` both pass locally (1 integration test, `testServiceStartsSelfChecksAndIsKillable`). `Scripts/verify.sh`/`verify-integration.sh` don't apply here (they only target `Packages/*`, matching the existing DocEngineService/VaultService pattern which also bypasses them) — consistent with the task's own Testing Requirements ("CI run itself is the test"). YAML validity checked via `ruby -ryaml`.
+
+**Harden:** Diff is minimal (3 added lines, 3 removed comment lines) and scoped entirely to `.github/workflows/ci.yml`. No dead code, no narrating comments added.
+
+**Security/privacy self-audit:** No sensitive data touched — this is a CI workflow config change adding a build/test step for an existing service skeleton; no vault, document, or PII surface involved.
+
+**Architecture self-review (G4):** No new type, no layering change, no ARCHITECTURE.md impact — purely closes a CI verification gap for already-merged code (P1-12).
