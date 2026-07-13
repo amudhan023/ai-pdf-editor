@@ -1,5 +1,7 @@
 # P1-13 — OCR Endpoint & Searchable Text Layer
 
+**Owner:** claude-agent · **Branch:** task/P1-13-ocr-endpoint · **Claimed:** 8eb81cd764468ab3acaac6ba8e4785dced1307c8
+
 **Epic:** E10/E2 · **Primary package:** `Packages/InferenceHost` (Vision adapter) + text-layer write in `DocEngineHost` `[INTEGRATION]` · **Complexity:** M · **Priority:** High
 
 ## Goal
