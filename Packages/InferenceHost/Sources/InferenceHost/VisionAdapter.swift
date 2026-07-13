@@ -1,24 +1,36 @@
 import Foundation
 import InferenceAPI
 
-/// Stub for the real Vision-framework OCR/MRZ/barcode adapter
-/// (ARCHITECTURE.md §7.1) — real recognition lands in P1-13. Returns a
-/// structurally valid, deterministic result so the registry/router/governor
-/// plumbing around it is exercisable end-to-end before the real model is
-/// wired.
+/// Real Vision-framework OCR adapter (ARCHITECTURE.md §7.1) — `manifest`
+/// stays unused on purpose (same reasoning as `CoreMLAdapter.embed`): Vision
+/// text recognition is an OS capability, not registry-loaded packData.
 public struct VisionAdapter: Sendable {
-    public init() {}
+    private let provider: VisionOCRProvider
+
+    public init(provider: VisionOCRProvider = VisionOCRProvider()) {
+        self.provider = provider
+    }
 
     public func ocr(_ request: OCRRequest, manifest: ModelManifest) async throws -> OCRResponse {
         guard !request.imageData.isEmpty else {
             throw InferenceError.adapterFailure(reason: "empty imageData")
         }
-        return OCRResponse(regions: [
-            OCRTextRegion(
-                text: "STUB_OCR_TEXT",
-                boundingBox: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
-                confidence: 0.5
+        let recognized = try provider.recognizeText(in: request.imageData)
+        let regions = recognized.map { run -> OCRTextRegion in
+            // Vision's boundingBox is normalized with origin bottom-left;
+            // NormalizedRect's convention (InferenceAPI) is origin top-left.
+            let flippedY = 1 - run.boundingBox.origin.y - run.boundingBox.height
+            return OCRTextRegion(
+                text: run.text,
+                boundingBox: NormalizedRect(
+                    x: run.boundingBox.origin.x,
+                    y: flippedY,
+                    width: run.boundingBox.width,
+                    height: run.boundingBox.height
+                ),
+                confidence: run.confidence
             )
-        ])
+        }
+        return OCRResponse(regions: regions)
     }
 }
