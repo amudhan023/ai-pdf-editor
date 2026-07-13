@@ -64,3 +64,20 @@ ADR-001 (ARCHITECTURE.md §10.1) selects PDFium as the engine core. Nothing on T
 
 ## Documentation Updates
 - `ThirdParty/pdfium/README.md` (upgrade playbook); ADR-001.
+
+## Journal
+
+**Housekeeping fix (2026-07-12):** the PR for this task (feat(DocEngineHost):
+vendor pinned PDFium binaries, resolve E-004 (P0-03), #47) merged to `main`
+as commit `862e0a4`, but Step 8d (move task file to `done/`) was never
+executed — the file was left in `in-progress/`, which incorrectly blocked
+every task in `tasks/backlog/phase-0-foundation/` that lists P0-03 as a
+dependency (their dependency check reads folder location). Verified the
+merge landed on current `main` (`ThirdParty/pdfium/{prebuilt,licenses,
+PINNED_REVISION,README.md}` present, `docs/adr/ADR-001-pdfium-source-and-pin.md`
+in place) before moving this file. The two items noted as "Not done
+(follow-up)" above (x86_64-architecture re-run of the linkage test; corpus
+smoke test) remain genuinely open but are correctly deferred — the corpus
+smoke test explicitly depends on P0-06 (`PDFEngineAPI` adapter), which does
+not exist yet, so this task cannot itself close that gap. No code changed
+in this fix, only task-tracking state.
