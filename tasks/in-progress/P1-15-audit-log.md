@@ -1,6 +1,8 @@
 # P1-15 — Audit Log (Hash-Chained, Append-Only)
 
-**Owner:** claude-agent · **Branch:** task/P1-15-audit-log · **Claimed:** 84f384a10ff55b66bfa841e1a72db78c3619396e
+**Owner:** claude-agent · **Branch:** task/P1-15-audit-log-gaps · **Claimed:** 84f384a10ff55b66bfa841e1a72db78c3619396e
+
+**Note:** an earlier PR #44 (merged 2026-07-06) implemented the base chain/rotation store but only covered a subset of this task's requirements (no archival, filtering, metadata value-safety, or event-bus subscription seam) and its own "move to done" commit was left on an orphaned branch, never merged to `main` — that's why this task file was still in `backlog/` for this iteration to claim. This PR finishes the remaining requirements.
 
 **Epic:** E14 · **Primary package:** `Packages/AuditLog` `[INTEGRATION]` (+ `Packages/Platform`) · **Complexity:** M · **Priority:** High
 
@@ -55,3 +57,14 @@ ARCHITECTURE.md §6.3/FR-5.2. Entries carry IDs, field paths, ticket IDs, hashes
 8. File a follow-up backlog task for the Platform-bus-to-AuditLog adapter wiring (Step 9 improvement, not blocking this PR).
 
 No frozen seam, entitlement, or new package dependency required — proceeding without escalation.
+
+### Harden / Gate
+- Split `AuditLog.swift` (had grown to 436 lines) into `AuditEntry.swift` (types) + `AuditLog.swift` (the store actor) to respect CLAUDE.md §4's ~400-line soft cap.
+- Self-review caught a real gap before it shipped: the first pass of `AuditMetadataValue.sha256(String)` had a public raw case, so a caller could construct `.sha256("free text")` directly and skip the validating factory entirely — the "type system rejects a value payload" acceptance criterion wasn't actually true. Fixed by introducing `SHA256Hex`, a wrapper struct whose only initializer validates the 64-hex-char format; `.sha256` now carries `SHA256Hex`, not `String`, so there is no code path that constructs one from arbitrary text.
+- `Scripts/verify.sh AuditLog` / `Scripts/verify.sh Platform`: OK (build + test + boundary lint). `Scripts/verify-integration.sh AuditLog`: no integration-tier tests yet (valid skip — no session/service consumer exists). `Scripts/verify-integration.sh Platform`: OK (existing XPC integration tests unaffected).
+- `swiftlint lint` on changed files: 1 pre-existing warning (`hashPayload`'s 7-parameter count, unchanged by this PR, present before P1-15 too), 0 new violations.
+- No consumers of `AuditLog`/`Platform` outside their own packages exist yet (`grep -rl "import AuditLog"` outside `Packages/AuditLog` returns nothing), so no downstream call sites needed updating.
+- Security/privacy self-audit: this PR touches only IDs/paths/ticket-IDs/counts/hashes in the audit log and a domain-event enum with the same non-value shape; no vault values, document content, or filenames under the user's home are read, logged, or stored anywhere in this diff.
+- Filed `tasks/backlog/phase-1-core-pillars/P1-18-domain-event-bus-auditlog-adapter.md` for the actual bus↔store wiring, deferred per the cross-package-dependency reasoning above.
+
+### Status: ready for PR (Step 7/8).
