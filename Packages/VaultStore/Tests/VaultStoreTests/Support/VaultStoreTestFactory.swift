@@ -1,4 +1,5 @@
 import Foundation
+import Platform
 @testable import VaultStore
 
 /// Builds a fully-wired, throwaway vault (unique Keychain account suffix per
@@ -14,8 +15,8 @@ enum VaultStoreTestFactory {
         let masterKeyManager: MasterKeyManager
         let lockController: VaultLockController
 
-        func makeStore() -> SQLCipherVaultStore {
-            SQLCipherVaultStore(dbURL: dbURL, lockController: lockController)
+        func makeStore(domainEventBus: DomainEventBus? = nil) -> SQLCipherVaultStore {
+            SQLCipherVaultStore(dbURL: dbURL, lockController: lockController, domainEventBus: domainEventBus)
         }
 
         func cleanUp() {

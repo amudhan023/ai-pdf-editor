@@ -18,6 +18,6 @@
 
 **Read API:** `entries(matching: AuditEntryFilter)` filters by event type(s), ticket ID, field-path prefix, and/or date range — this is the path the Privacy Dashboard (P3-03) is expected to drive; don't add a second query surface.
 
-**Event bus subscription:** `AuditLogStore.subscribe<S: AsyncSequence>(to:) where S.Element: AuditableEvent` durably appends each event in order before advancing. Deliberately decoupled from `Platform.DomainEventBus` (no dependency either direction — see `Packages/Platform/CLAUDE.md`): a new cross-package dependency needs its own ADR (CLAUDE.md §3.7), so the adapter conforming a bus's concrete event type to `AuditableEvent` belongs in whichever package first needs both wired together, not here.
+**Event bus subscription:** `AuditLogStore.subscribe<S: AsyncSequence>(to:) where S.Element: AuditableEvent` durably appends each event in order before advancing. Still decoupled from `Platform.DomainEventBus` here (no dependency either direction — see `Packages/Platform/CLAUDE.md`): the adapter conforming `DomainEvent` to `AuditableEvent`, plus a `DomainEventSubscriber` that calls `append` directly, live in `Packages/VaultStore` (P1-18, ADR-011) — the first package that needed both wired together.
 
 **Gotchas:** `swift test` requires full Xcode.app (not just Command Line Tools) — XCTest/Testing frameworks are Xcode-only, permanently. See `tasks/escalations/E-002-no-xctest-without-xcode.md`. `swift build` works fine under CLT alone.
