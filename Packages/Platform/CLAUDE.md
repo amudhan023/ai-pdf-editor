@@ -14,6 +14,8 @@
 - Genuine cross-process XPC (two ad-hoc processes, no app bundle) does not work on this platform without launchd/bundle registration — confirmed empirically, written up in ADR-002. Don't try to route around it with `NSKeyedArchiver`-on-an-endpoint or an ad-hoc `machServiceName`; both were tried and fail. Wait for P0-07's real `.xpc` bundle.
 - Mixing a blocking `DispatchSemaphore.wait()` on the main thread with an unstructured `Task {}` deadlocks — the task never gets scheduled. Pump `RunLoop.main.run(mode:before:)` in a loop instead if you need the main thread to wait for async work without exiting to a full `RunLoop.main.run()` forever. See `XPCLatencyBench`/`Services/DocEngineService`'s `main.swift` for the working pattern.
 
+**Domain event bus (`Events/DomainEventBus.swift`, P1-15):** `DomainEventBus` is an actor that fans out `DomainEvent`s to subscribed `DomainEventSubscriber`s. `publish` awaits every subscriber before returning — this is what gives a privileged caller (e.g. a fill commit) a "committed only once durable" guarantee, provided the durable-write subscriber is on that await chain. Deliberately has no dependency on `AuditLog` (or vice versa): conforming a subscriber to both `DomainEventSubscriber` and AuditLog's `AuditableEvent` is an adapter that belongs in whichever package first needs both (a session/composition root), not here — a new cross-package dependency needs its own ADR (CLAUDE.md §3.7).
+
 **Invariants:**
 - No network APIs, ever (Constitution Art. 1/11; CLAUDE.md §7).
 - No logging of vault values or document content (CLAUDE.md §16).

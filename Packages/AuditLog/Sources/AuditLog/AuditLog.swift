@@ -1,109 +1,19 @@
 import Foundation
-import CryptoKit
-
-// AuditLog: append-only, hash-chained local audit log
-// Invariants: entry type has no value slot. No network I/O.
-
-public enum AuditEventType: String, Codable, Sendable {
-    case vaultRead
-    case vaultWrite
-    case ingestionCommitted
-    case fillCommitted
-    case networkEvent
-    case authEvent
-}
-
-public struct AuditEntry: Codable, Sendable {
-    public let id: UUID
-    public let timestamp: Date
-    public let eventType: AuditEventType
-    public let fieldPath: String?
-    public let ticketID: String?
-    public let metadata: [String: String]? // only non-sensitive metadata (no values)
-    public let prevHashHex: String?
-    public let hashHex: String
-
-    enum CodingKeys: String, CodingKey {
-        case id, timestamp, eventType, fieldPath, ticketID, metadata, prevHashHex, hashHex
-    }
-
-    public init(
-        id: UUID = UUID(),
-        timestamp: Date = Date(),
-        eventType: AuditEventType,
-        fieldPath: String? = nil,
-        ticketID: String? = nil,
-        metadata: [String: String]? = nil,
-        prevHashHex: String?
-    ) throws {
-        self.id = id
-        self.timestamp = timestamp
-        self.eventType = eventType
-        self.fieldPath = fieldPath
-        self.ticketID = ticketID
-        self.metadata = metadata
-        self.prevHashHex = prevHashHex
-
-        let payload = try AuditEntry.hashPayload(
-            id: id, timestamp: timestamp, eventType: eventType, fieldPath: fieldPath,
-            ticketID: ticketID, metadata: metadata, prevHashHex: prevHashHex
-        )
-        self.hashHex = AuditEntry.sha256Hex(payload)
-    }
-
-    /// The exact bytes that get hashed, excluding `hashHex` itself. A
-    /// `Codable` struct with sorted keys and a fixed date strategy (mirrors
-    /// `PolicyKit.TicketClaims.canonicalPayload()`) rather than hand-rolled
-    /// `JSONSerialization` over `[String: Any]` — deterministic regardless
-    /// of dictionary iteration order or Foundation's default date encoding.
-    private struct HashPayload: Encodable {
-        let id: UUID
-        let timestamp: Date
-        let eventType: AuditEventType
-        let fieldPath: String?
-        let ticketID: String?
-        let metadata: [String: String]?
-        let prevHashHex: String?
-    }
-
-    static func hashPayload(
-        id: UUID, timestamp: Date, eventType: AuditEventType, fieldPath: String?,
-        ticketID: String?, metadata: [String: String]?, prevHashHex: String?
-    ) throws -> Data {
-        let payload = HashPayload(
-            id: id, timestamp: timestamp, eventType: eventType, fieldPath: fieldPath,
-            ticketID: ticketID, metadata: metadata, prevHashHex: prevHashHex
-        )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        encoder.dateEncodingStrategy = .secondsSince1970
-        return try encoder.encode(payload)
-    }
-
-    static func sha256Hex(_ data: Data) -> String {
-        let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
-    }
-}
-
-public enum AuditLogError: Error {
-    case ioError(Error)
-    case verificationFailed
-}
 
 /// Append-only, hash-chained audit log (CLAUDE.md §7.9, §16 — audit entries
 /// carry IDs/paths/hashes, never values). An `actor` so every append is
 /// naturally serialized without a hand-rolled `DispatchQueue` (CLAUDE.md §4:
 /// "no `DispatchQueue` in new code without justification").
 ///
-/// `cachedLastHash` is the point of this rewrite: the prior version called
-/// `lastHash()` — which decodes every entry in every segment — on every
-/// single `append`, making the log O(n^2) over its own lifetime. This
+/// `cachedLastHash` is the point of a prior rewrite: an earlier version
+/// called `lastHash()` — which decodes every entry in every segment — on
+/// every single `append`, making the log O(n^2) over its own lifetime. This
 /// records the tail hash in memory at init (reading only the newest
 /// non-empty segment's last line, not the whole log) and updates it after
 /// each write, making `append` O(1) amortized in the common case.
 public actor AuditLogStore {
     private let directory: URL
+    private let archiveDirectory: URL
     // `.secondsSince1970` (not `.iso8601`, which truncates to whole
     // seconds): must round-trip losslessly, since `verifyChain` recomputes
     // each entry's hash from its *decoded* fields and compares against the
@@ -121,12 +31,24 @@ public actor AuditLogStore {
     private var currentSegmentIndex: Int
     private var currentSegmentSize: UInt64 = 0
     private let maxSegmentBytes: UInt64
+    /// Once the number of live (non-archived) segments exceeds this, the
+    /// oldest ones are moved into `archiveDirectory` on the next rotation.
+    /// Archived segments are still read by `allEntries`/`verifyChain` —
+    /// "archival" bounds the hot working set, it doesn't destroy history.
+    private let maxLiveSegments: Int
     private var cachedLastHash: String?
 
-    public init(directory: URL, maxSegmentBytes: UInt64 = 64 * 1024) throws {
+    public init(
+        directory: URL,
+        maxSegmentBytes: UInt64 = 64 * 1024,
+        maxLiveSegments: Int = 64
+    ) throws {
         self.directory = directory
         self.maxSegmentBytes = maxSegmentBytes
+        self.maxLiveSegments = maxLiveSegments
+        self.archiveDirectory = directory.appendingPathComponent("archive")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: archiveDirectory, withIntermediateDirectories: true)
 
         let existing = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "seg" }
@@ -144,7 +66,7 @@ public actor AuditLogStore {
         }
 
         self.cachedLastHash = try Self.lastHashHexSearchingBackward(
-            fromSegmentIndex: self.currentSegmentIndex, in: directory
+            fromSegmentIndex: self.currentSegmentIndex, liveDirectory: directory, archiveDirectory: archiveDirectory
         )
     }
 
@@ -160,12 +82,36 @@ public actor AuditLogStore {
         FileManager.default.createFile(atPath: next.path, contents: nil)
         currentHandle = try FileHandle(forUpdating: next)
         currentSegmentSize = 0
+        try archiveOldestSegmentsIfNeeded()
     }
 
-    /// Append an event; returns the written entry.
+    /// Moves the oldest live segments (everything but the current one) into
+    /// `archiveDirectory` once the live count exceeds `maxLiveSegments`.
+    /// Never touches the segment currently open for writing.
+    private func archiveOldestSegmentsIfNeeded() throws {
+        let live = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "seg" }
+            .sorted { Self.segmentIndex($0) < Self.segmentIndex($1) }
+        guard live.count > maxLiveSegments else { return }
+        let overflow = live.count - maxLiveSegments
+        for url in live.prefix(overflow) where Self.segmentIndex(url) != currentSegmentIndex {
+            let destination = archiveDirectory.appendingPathComponent(url.lastPathComponent)
+            try FileManager.default.moveItem(at: url, to: destination)
+        }
+    }
+
+    /// Append an event; returns the written entry. Durable on return: the
+    /// write is on disk (via `FileHandle.write`) before this actor call
+    /// completes, so any caller that awaits `append` — including a future
+    /// `subscribe` consumer — has the "audit entry is durable before the
+    /// privileged operation is considered committed" guarantee this task
+    /// requires, with no separate flush/ack step.
     @discardableResult
     public func append(
-        eventType: AuditEventType, fieldPath: String? = nil, ticketID: String? = nil, metadata: [String: String]? = nil
+        eventType: AuditEventType,
+        fieldPath: String? = nil,
+        ticketID: String? = nil,
+        metadata: [AuditMetadataEntry]? = nil
     ) throws -> AuditEntry {
         let entry = try AuditEntry(
             eventType: eventType, fieldPath: fieldPath, ticketID: ticketID, metadata: metadata, prevHashHex: cachedLastHash
@@ -183,15 +129,36 @@ public actor AuditLogStore {
         return entry
     }
 
-    // Read all segments in order
-    public func allEntries() throws -> [AuditEntry] {
-        try Self.allEntries(in: directory)
+    /// Consumes any stream of `AuditableEvent`s (the seam a future domain
+    /// event bus subscribes through), appending — and thus durably
+    /// writing — each one before advancing to the next.
+    public func subscribe<S: AsyncSequence>(to events: S) async throws where S.Element: AuditableEvent {
+        for try await event in events {
+            try append(
+                eventType: event.auditEventType,
+                fieldPath: event.auditFieldPath,
+                ticketID: event.auditTicketID,
+                metadata: event.auditMetadata
+            )
+        }
     }
 
-    private static func allEntries(in directory: URL) throws -> [AuditEntry] {
-        let urls = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+    // Read all segments (archived + live) in order
+    public func allEntries() throws -> [AuditEntry] {
+        try Self.allEntries(liveDirectory: directory, archiveDirectory: archiveDirectory)
+    }
+
+    // Filtered read for dashboard/audit consumers.
+    public func entries(matching filter: AuditEntryFilter) throws -> [AuditEntry] {
+        try allEntries().filter(filter.matches)
+    }
+
+    private static func allEntries(liveDirectory: URL, archiveDirectory: URL) throws -> [AuditEntry] {
+        let liveURLs = try FileManager.default.contentsOfDirectory(at: liveDirectory, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "seg" }
-        let sorted = urls.sorted { segmentIndex($0) < segmentIndex($1) }
+        let archivedURLs = try FileManager.default.contentsOfDirectory(at: archiveDirectory, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "seg" }
+        let sorted = (liveURLs + archivedURLs).sorted { segmentIndex($0) < segmentIndex($1) }
         var out: [AuditEntry] = []
         let decoder = Self.makeDecoder()
         for url in sorted {
@@ -213,15 +180,19 @@ public actor AuditLogStore {
         return decoder
     }
 
-    /// Reads only the last line of `directory/<index>.seg`, walking
-    /// backward through lower segment indices if the newest one is empty
-    /// (immediately after a rotation) or missing — never decodes any entry
-    /// but the one that matters.
-    private static func lastHashHexSearchingBackward(fromSegmentIndex startIndex: Int, in directory: URL) throws -> String? {
+    /// Reads only the last line of the newest segment (checking the live
+    /// directory first, then the archive), walking backward through lower
+    /// segment indices if the newest one is empty (immediately after a
+    /// rotation) or missing — never decodes any entry but the one that matters.
+    private static func lastHashHexSearchingBackward(
+        fromSegmentIndex startIndex: Int, liveDirectory: URL, archiveDirectory: URL
+    ) throws -> String? {
         var index = startIndex
         while index >= 0 {
-            let url = directory.appendingPathComponent("\(index).seg")
-            if let hash = try lastHashHex(inSegmentAt: url) { return hash }
+            let liveURL = liveDirectory.appendingPathComponent("\(index).seg")
+            if let hash = try lastHashHex(inSegmentAt: liveURL) { return hash }
+            let archivedURL = archiveDirectory.appendingPathComponent("\(index).seg")
+            if let hash = try lastHashHex(inSegmentAt: archivedURL) { return hash }
             index -= 1
         }
         return nil
@@ -240,7 +211,7 @@ public actor AuditLogStore {
         cachedLastHash
     }
 
-    // Verify chain integrity across all segments
+    // Verify chain integrity across all segments (archived + live)
     public func verifyChain() -> Bool {
         let entries: [AuditEntry]
         do {
@@ -266,10 +237,13 @@ public actor AuditLogStore {
         return true
     }
 
-    // Tamper test helper: flip a byte in a segment file (tests only)
+    // Tamper test helper: flip a byte in a segment file, live or archived (tests only)
     #if DEBUG
     public func flipByteInSegment(index: Int, atOffset offset: UInt64) throws {
-        let url = directory.appendingPathComponent("\(index).seg")
+        let liveURL = directory.appendingPathComponent("\(index).seg")
+        let url = FileManager.default.fileExists(atPath: liveURL.path)
+            ? liveURL
+            : archiveDirectory.appendingPathComponent("\(index).seg")
         var data = try Data(contentsOf: url)
         guard offset < data.count else { return }
         data[Int(offset)] = ~data[Int(offset)]
