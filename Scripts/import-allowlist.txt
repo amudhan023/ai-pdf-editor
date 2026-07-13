@@ -16,5 +16,5 @@ IngestionSession: IngestionPipeline VaultAPI PolicyKit SwiftUI AppKit os OSLog
 VaultManagerUI: VaultAPI PolicyKit SwiftUI AppKit os OSLog
 PrivacyDashboard: AuditLog VaultAPI SwiftUI AppKit os OSLog
 DocEngineHost: PDFEngineAPI Platform os OSLog CPDFium PDFium
-InferenceHost: InferenceAPI Platform CryptoKit os OSLog NaturalLanguage
+InferenceHost: InferenceAPI Platform CryptoKit os OSLog NaturalLanguage Vision CoreGraphics CoreImage CoreText ImageIO
 VaultStore: VaultAPI PolicyKit Platform AuditLog Security CryptoKit GRDB os OSLog
