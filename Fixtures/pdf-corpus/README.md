@@ -31,17 +31,18 @@ authoring-time inspection tool — opening each file, reading `PDFDocument
 of DocEngineHost or the shipping app** — it's the equivalent of opening the
 file in Preview.app to record its facts, formalized as a script for
 reproducibility, and it never runs as part of the product or `verify.sh`.
-`render_checksum` is intentionally *not* recorded: no rasterization engine
-(PDFium/`DocEngine.xpc`) exists in this repo yet (P0-06 is blocked, see
-`tasks/escalations/E-004-pdfium-build-infeasible-on-this-machine.md`), so
-there is nothing to honestly compute it against.
+`render_checksum` is intentionally *not* recorded: `DocEngineHost`/PDFium
+(P0-06) now exists (see `Packages/DocEngineHost/Sources/DocEngineHost/PDFiumEngine.swift`
+and `Scripts/bench.sh`'s `render-latency` suite, which does open these
+fixtures through it), but wiring a render checksum into `corpus-open`
+specifically is separate follow-up scope, not done in this PR.
 
 ## `Scripts/bench.sh corpus-open`
 
-Runs today, but only checks what's checkable without a PDF engine: every
-manifest row's file exists and its `file_sha256` matches (corruption/tampering
-detection). It does **not** yet open documents through the real engine or
-validate `page_count`/`text_sha256` against a live parse — that half of the
-suite is a stub pending P0-06 (see the script's own output for the exact
-skip reason). This is deliberate, not a masked failure: see
-`docs/specs/corpus-plan.md`.
+Runs today, but only checks what's checkable without opening documents:
+every manifest row's file exists and its `file_sha256` matches
+(corruption/tampering detection). It does **not** yet open documents through
+the real engine or validate `page_count`/`text_sha256` against a live parse
+— that's tracked alongside P1-16's not-yet-built `Scripts/corpus-roundtrip.sh`
+release-gate suite (see the script's own output for the exact skip reason).
+This is deliberate, not a masked failure: see `docs/specs/corpus-plan.md`.

@@ -6,18 +6,21 @@
 #   corpus-open           Fixtures/pdf-corpus/manifest.json rows + malformed
 #                          rows: file presence + sha256 integrity, per row.
 #                          Does NOT open documents through a real PDF engine
-#                          (DocEngineHost/PDFium isn't buildable yet on this
-#                          machine - tasks/escalations/
-#                          E-004-pdfium-build-infeasible-on-this-machine.md,
-#                          P0-06 blocked) - that half is honestly reported as
-#                          skipped, not faked green.
+#                          yet - DocEngineHost/PDFium exists now (P0-06), but
+#                          wiring corpus-open's page_count/render_checksum
+#                          validation through it is separate follow-up scope
+#                          (tracked alongside P1-16's not-yet-built
+#                          Scripts/corpus-roundtrip.sh release-gate suite) -
+#                          that half is honestly reported as skipped, not
+#                          faked green.
 #   manifest-validate      Schema-shape check of all three Fixtures/*/manifest.json.
 #   field-mapping          Structural check of Fixtures/forms/manifest.json's
 #                          field_name/label/vault_path rows.
 #   generator-determinism  Runs Fixtures/documents/generate.swift twice with
 #                          the same seed and requires byte-identical output.
-#   render-latency         Perf suite from the task's original scope. Reported
-#                          as skipped: no renderer exists yet (same P0-06 gap).
+#   render-latency         Real PDFium-backed tile render latency (P0-06) via
+#                          Packages/DocEngineHost's RenderLatencyBench
+#                          executable, against the starter corpus.
 #   xpc-latency            Real round-trip latency via Packages/Platform's
 #                          XPCLatencyBench executable (P0-05/ADR-002 baseline)
 #                          - same-process anonymous-listener calls, so it
@@ -57,7 +60,7 @@ corpus_open() {
         fi
         [ "$ok" = true ] && passed=$((passed + 1)) || failed=$((failed + 1))
         results="$(echo "$results" | jq --arg id "$id" --arg file "$file" --argjson ok "$ok" --arg note "$note" \
-            '. + [{"id":$id,"file":$file,"sha256_ok":$ok,"engine_open":"skipped_pdfium_unavailable","note":$note}]')"
+            '. + [{"id":$id,"file":$file,"sha256_ok":$ok,"engine_open":"skipped_not_wired_yet","note":$note}]')"
     done < <(jq -c '.rows[]' "$manifest")
 
     while IFS= read -r row; do
@@ -184,13 +187,13 @@ generator_determinism() {
 }
 
 # ---------------------------------------------------------------------------
-# render-latency (perf) — explicit stub, not faked
+# render-latency (perf, P0-06): real PDFium-backed tile render latency
+# against the starter corpus, via RenderLatencyBench (swift run, since it
+# needs to import DocEngineHost directly - same pattern as xpc-latency below).
 # ---------------------------------------------------------------------------
 render_latency() {
-    jq -n '{suite:"render-latency",status:"skipped",
-            reason:"No rendering engine exists in this repo yet (DocEngineHost/PDFium, P0-06 blocked by tasks/escalations/E-004-pdfium-build-infeasible-on-this-machine.md). Nothing to time.",
-            budget_ref:"CLAUDE.md SS11 NFR-P2 (cold open < 1s / 100-page PDF)"}'
-    return 0
+    swift run --package-path "$ROOT/Packages/DocEngineHost" -q RenderLatencyBench 2>/dev/null \
+        || jq -n '{suite:"render-latency",status:"fail",reason:"RenderLatencyBench did not run"}'
 }
 
 # ---------------------------------------------------------------------------

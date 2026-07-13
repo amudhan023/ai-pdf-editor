@@ -35,6 +35,18 @@ let package = Package(
                 "CPDFium"
             ]
         ),
-        .testTarget(name: "DocEngineHostTests", dependencies: ["DocEngineHost"])
+        .testTarget(name: "DocEngineHostTests", dependencies: ["DocEngineHost"]),
+        // Scripts/bench.sh's render-latency suite (P0-06 acceptance
+        // criterion: tile render p50 < 16ms at 1x for corpus text pages) -
+        // `swift run` this rather than a bench.sh-only script, since it
+        // needs to import DocEngineHost directly (same pattern as
+        // Platform's XPCLatencyBench for xpc-latency).
+        .executableTarget(
+            name: "RenderLatencyBench",
+            dependencies: [
+                "DocEngineHost",
+                .product(name: "PDFEngineAPI", package: "PDFEngineAPI")
+            ]
+        )
     ]
 )

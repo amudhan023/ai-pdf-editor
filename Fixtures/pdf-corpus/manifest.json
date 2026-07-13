@@ -3,7 +3,7 @@
   "notes": [
     "v1 starter set: 5 real, freely-licensed government PDF forms fetched directly over HTTPS from irs.gov / uscis.gov (see source_url per row). This is NOT the >=500-document target from P0-08's original acceptance criteria - that gap is tracked in tasks/escalations/E-005-corpus-acquisition-gap.md and docs/specs/corpus-plan.md.",
     "page_count and text_sha256 were computed once at authoring time using Apple PDFKit (a system framework) as an inspection tool only - this is NOT PDFium and is NOT part of DocEngineHost/the shipping app; it is the equivalent of opening the file in Preview.app to record its facts, formalized as a script for reproducibility. See Fixtures/pdf-corpus/README.md.",
-    "render_checksum is intentionally omitted: no rasterization engine (PDFium/DocEngine.xpc) exists in this repo yet (tasks/escalations/E-004-pdfium-build-infeasible-on-this-machine.md / P0-06 blocked). Scripts/bench.sh corpus-open validates only what can honestly be validated today: file presence and sha256 integrity.",
+    "render_checksum is intentionally omitted: DocEngineHost/PDFium (P0-06) now exists, but corpus-open has not yet been wired to open documents through it and compute a render checksum - that's separate follow-up scope (see Scripts/bench.sh's render-latency suite for the P0-06 tile-render bench that IS wired up). Scripts/bench.sh corpus-open still validates only file presence and sha256 integrity today.",
     "file_sha256 is the raw-file hash and is engine-independent - it detects corruption/tampering of the fixture itself and needs no PDF engine to check."
   ],
   "rows": [
@@ -102,6 +102,24 @@
       "file_sha256": "1f812f5144707cc1e12ae6ae9d71be51ac6acc3c3f3ef4718ed77e534e31e606",
       "expected_behavior": "reject: typed error, no crash, no partial write",
       "verified_rejected_by": "PDFKit(PDFDocument) at authoring time - fails to open"
+    },
+    {
+      "id": "bit-flipped-body",
+      "file": "malformed/bit-flipped-body.pdf",
+      "corruption_type": "dense_bit_flip_near_header",
+      "derived_from": "starter/irs-f4506t.pdf (every 7th byte in the first 5000 bytes after the header, offset 9 onward, XORed with 0xFF)",
+      "file_sha256": "52549972f998ce5786af43ce5652643a1903bf3ec7f10449d0ecab6f3dce2589",
+      "expected_behavior": "PDFium's built-in xref-rebuild repair heuristic (a full-file scan for 'N 0 obj' markers, used when the declared xref table doesn't parse) recovers this file despite the corruption, since most 'obj'/'endobj' tokens survive a sparse every-7th-byte flip - open() succeeds. This is a real, useful finding (PDFKit at authoring time was stricter and would have rejected the same bytes) documented here rather than fought with denser corruption, which would just degenerate into duplicating truncated-header-only's coverage. No crash either way is what's actually asserted.",
+      "verified_rejected_by": "N/A - opens successfully; see DocEngineHost PDFiumEngine (P0-06) PDFiumEngineTests.testOpenGracefullyRejectsEachMalformedFixture's allowlist for this id"
+    },
+    {
+      "id": "bit-flipped-tail",
+      "file": "malformed/bit-flipped-tail.pdf",
+      "corruption_type": "dense_bit_flip_in_trailing_20_percent",
+      "derived_from": "starter/irs-fw4.pdf (every 3rd byte in the last 20% of the file XORed with 0xAA, targeting the xref/trailer region)",
+      "file_sha256": "16ba84e099e64f9e6e0ad9d4369dbd56ca60852b45b42ec1f1dd9c37716a5a58",
+      "expected_behavior": "reject: typed error, no crash, no partial write",
+      "verified_rejected_by": "DocEngineHost PDFiumEngine (P0-06) - PDFiumEngineTests.testOpenGracefullyRejectsEachMalformedFixture"
     }
   ]
 }
