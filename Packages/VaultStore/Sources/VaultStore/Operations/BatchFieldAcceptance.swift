@@ -14,7 +14,7 @@ extension SQLCipherVaultStore {
             try checkTicket(ticket, operation: .write, person: field.personID, path: field.path)
         }
         if let personID = fields.first?.personID {
-            emitAccess(.write, person: personID, paths: fields.map(\.path), ticket: ticket)
+            try await emitAccess(.write, person: personID, paths: fields.map(\.path), ticket: ticket)
         }
         let rows = try fields.map { try ProfileFieldRow($0) }
         try await pool.write { db in

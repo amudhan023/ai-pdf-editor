@@ -17,4 +17,4 @@ VaultManagerUI: VaultAPI PolicyKit SwiftUI AppKit os OSLog
 PrivacyDashboard: AuditLog VaultAPI SwiftUI AppKit os OSLog
 DocEngineHost: PDFEngineAPI Platform os OSLog CPDFium PDFium
 InferenceHost: InferenceAPI Platform CryptoKit os OSLog NaturalLanguage
-VaultStore: VaultAPI PolicyKit Platform Security CryptoKit GRDB os OSLog
+VaultStore: VaultAPI PolicyKit Platform AuditLog Security CryptoKit GRDB os OSLog

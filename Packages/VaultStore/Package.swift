@@ -11,6 +11,7 @@ let package = Package(
         .package(path: "../VaultAPI"),
         .package(path: "../PolicyKit"),
         .package(path: "../Platform"),
+        .package(path: "../AuditLog"),
         .package(path: "../../ThirdParty/GRDB")
     ],
     targets: [
@@ -20,6 +21,7 @@ let package = Package(
                 .product(name: "VaultAPI", package: "VaultAPI"),
                 .product(name: "PolicyKit", package: "PolicyKit"),
                 .product(name: "Platform", package: "Platform"),
+                .product(name: "AuditLog", package: "AuditLog"),
                 .product(name: "GRDB", package: "GRDB")
             ]
         ),

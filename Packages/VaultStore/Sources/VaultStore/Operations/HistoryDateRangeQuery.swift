@@ -20,7 +20,7 @@ extension SQLCipherVaultStore {
     ) async throws -> [HistoryEntry] {
         let pool = try openedPool()
         try checkTicket(ticket, operation: .read, person: person)
-        emitAccess(.read, person: person, ticket: ticket)
+        try await emitAccess(.read, person: person, ticket: ticket)
         return try await pool.read { db in
             var request = HistoryEntryRow
                 .filter(Column("personID") == person.value.uuidString && Column("category") == category.rawValue)
