@@ -34,3 +34,17 @@ This window is the product's privacy claim made inspectable. Reads AuditLog (P1-
 
 ## Documentation Updates
 - Package `CLAUDE.md`; user-facing privacy explainer copy reviewed against ARCHITECTURE.md claims.
+
+## Journal
+
+**Orient:** Picked up a prior session's in-progress work on this exact branch: `StorageSummaryService`, `ActivityTimelineViewModel`, `NetworkActivityViewModel`/`NetworkConnectionSettingsStore`, `VaultExportService`, `SecureEraseViewModel`, `VaultFieldCatalog`, and `PrivacyDashboardError` already existed uncommitted, plus one test file (`StorageSummaryServiceTests`). The placeholder `PrivacyDashboard.swift` module anchor had been deleted but the test referencing it (`PrivacyDashboardTests.swift`) was left behind, breaking the build.
+
+**Plan:** (1) Remove the now-dead placeholder test. (2) Verify build/tests/boundary-lint green. (3) Fill the testing gap: the task's Testing Requirements call for view-model tests over synthetic audit streams, toggle-enforcement tests, and the two acceptance criteria (fresh-install zero network events + toggle prevents connection; secure erase renders vault unreadable) had no test coverage yet — added `ActivityTimelineViewModelTests`, `NetworkActivityViewModelTests` (incl. a fake-dialer toggle-enforcement test, since no real update-check/license-validation call site exists yet in this repo to stub), `VaultActionsTests` (export + secure-erase, including the post-shred `person(_:)` throws check). (4) Document the two known gaps (no person-enumeration API, network enforcement lives outside this package) in the package `CLAUDE.md`.
+
+**Verify:** `Scripts/verify.sh PrivacyDashboard` → OK (build + 15 tests + boundary lint).
+
+**Security/privacy self-audit:** Touches vault field presence (counts only, no values — `compareRead`), vault export (full field values, but only via an explicit user-initiated `.read`-ticketed export action, JSON-encoded as the sanctioned final-write boundary), and crypto-shred (destructive, gated by typed-name confirmation). No network calls; no values logged; `AuditLog` entries carry no values by construction.
+
+**Architecture self-review (§6):** No type here duplicates an API-package concept (view-models wrap `VaultClient`/`AuditLogStore` calls, they don't reinvent them). No UI logic present yet (no `*UI` package exists for this task — out of this task's stated scope, which is `Sources/**` view-model/service layer only). No ARCHITECTURE.md edit needed.
+
+**Snapshot tests:** Not added — no `*UI` package/views exist yet in this repo for this feature; the task's "Files Likely Affected" is `Sources/**` only, and there's no SwiftUI view target in this package to snapshot. Flagging as a gap for whichever follow-up task adds the actual dashboard UI.
