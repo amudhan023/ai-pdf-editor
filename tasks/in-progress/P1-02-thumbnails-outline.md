@@ -2,6 +2,8 @@
 
 **Epic:** E3 · **Primary package:** `Packages/DocumentSession` (sidebar views) · **Complexity:** M · **Priority:** High
 
+**Owner:** claude-agent · **Branch:** task/P1-02-thumbnails-outline · **Claimed:** 822ecb9a7fd02cc0e47260ac22c16b8d1438bc3e
+
 ## Goal
 Sidebar with page thumbnails (virtualized) and document outline/TOC tree; click-to-navigate; current-page tracking.
 
