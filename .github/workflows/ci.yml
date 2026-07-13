@@ -168,6 +168,27 @@ jobs:
           swift build --package-path Services/InferenceService
           swift test --package-path Services/InferenceService
 
+  # App/ is a standalone SwiftPM package too (REPO_STRUCTURE.md: the
+  # composition-root executable), same reasoning as the services job below
+  # - detect-changes' matrix only scans Packages/*.
+  app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Confirm full Xcode toolchain
+        run: |
+          xcode-select -p
+          xcode-select -p | grep -qE "Xcode(_[0-9.]+)?\.app" || { echo "Full Xcode required, CLT-only runner detected (see E-002)"; exit 1; }
+          swift --version
+
+      - name: Scripts/verify.sh App
+        run: |
+          swift build --package-path App
+          swift test --package-path App
+
   repo-checks:
     runs-on: macos-15
     steps:
@@ -187,7 +208,7 @@ jobs:
         run: Scripts/codegen.sh --check
 
   ci-status:
-    needs: [detect-changes, verify, integration-tests, services, repo-checks]
+    needs: [detect-changes, verify, integration-tests, services, app, repo-checks]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -199,6 +220,10 @@ jobs:
           fi
           if [ "${{ needs.services.result }}" != "success" ]; then
             echo "services: ${{ needs.services.result }}"
+            exit 1
+          fi
+          if [ "${{ needs.app.result }}" != "success" ]; then
+            echo "app: ${{ needs.app.result }}"
             exit 1
           fi
           if [ "${{ needs.verify.result }}" != "success" ] && [ "${{ needs.verify.result }}" != "skipped" ]; then
