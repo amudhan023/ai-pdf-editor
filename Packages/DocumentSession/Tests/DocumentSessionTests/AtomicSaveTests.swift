@@ -121,3 +121,62 @@ private extension MockLifecycle {
         shouldFailOpen = value
     }
 }
+
+// MARK: - FileCoordinating injection
+
+/// Records the URL it was asked to coordinate and either forwards to the
+/// real body (default) or fails before calling it, so tests can prove
+/// `AtomicSaver` (a) actually routes the swap through the coordinator and
+/// (b) treats a coordination failure the same as a validation failure —
+/// `original` untouched, no backup written.
+private final class MockFileCoordinator: FileCoordinating, @unchecked Sendable {
+    private(set) var coordinatedURLs: [URL] = []
+    var shouldFailCoordination = false
+
+    func coordinateReplace(of url: URL, using body: (URL) throws -> Void) throws {
+        coordinatedURLs.append(url)
+        if shouldFailCoordination {
+            throw AtomicSaveError.ioError("mock coordination failure")
+        }
+        try body(url)
+    }
+}
+
+extension AtomicSaveTests {
+    func testReplaceRoutesThroughTheInjectedCoordinator() async throws {
+        let workspace = try makeWorkspace()
+        let (dir, original, backups) = (workspace.dir, workspace.original, workspace.backups)
+        try Data("original".utf8).write(to: original)
+        let temp = try writeTemp("new", in: dir)
+
+        let coordinator = MockFileCoordinator()
+        let saver = AtomicSaver(engine: MockLifecycle(), backupDirectory: backups, coordinator: coordinator)
+        try await saver.replace(original: original, withTemp: temp)
+
+        XCTAssertEqual(coordinator.coordinatedURLs, [original])
+        XCTAssertEqual(try String(contentsOf: original, encoding: .utf8), "new")
+    }
+
+    func testCoordinationFailureLeavesOriginalAndDoesNotWriteAnyBackup() async throws {
+        let workspace = try makeWorkspace()
+        let (dir, original, backups) = (workspace.dir, workspace.original, workspace.backups)
+        try Data("untouched".utf8).write(to: original)
+        let temp = try writeTemp("new", in: dir)
+
+        let coordinator = MockFileCoordinator()
+        coordinator.shouldFailCoordination = true
+        let saver = AtomicSaver(engine: MockLifecycle(), backupDirectory: backups, coordinator: coordinator)
+
+        do {
+            try await saver.replace(original: original, withTemp: temp)
+            XCTFail("expected the coordination failure to surface")
+        } catch let error as AtomicSaveError {
+            guard case .ioError = error else {
+                return XCTFail("expected .ioError, got \(error)")
+            }
+        }
+
+        XCTAssertEqual(try String(contentsOf: original, encoding: .utf8), "untouched")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: backups.path), "no backup should be written when coordination fails")
+    }
+}

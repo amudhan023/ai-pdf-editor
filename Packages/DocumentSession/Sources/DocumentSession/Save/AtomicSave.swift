@@ -30,15 +30,29 @@ public enum AtomicSaveError: Error, Sendable, Equatable {
 /// copy fails, `replace` throws before `original` is touched at all; a
 /// crash or failure any time after the copy still leaves `original`
 /// governed solely by `replaceItemAt`'s own atomicity guarantee.
+///
+/// The backup capture and the swap both run inside a single
+/// `FileCoordinating.coordinateReplace` (`.forReplacing`) call around
+/// `original`, so iCloud-Drive-resident documents get told about the
+/// wholesale replace instead of racing iCloud's own sync of the same
+/// bytes — required for `original` to behave correctly when it lives in
+/// a ubiquity container, per this task's Requirements.
 public struct AtomicSaver: Sendable {
     private let engine: DocumentLifecycle
     private let backupDirectory: URL
     private let retentionCount: Int
+    private let coordinator: FileCoordinating
 
-    public init(engine: DocumentLifecycle, backupDirectory: URL, retentionCount: Int = 10) {
+    public init(
+        engine: DocumentLifecycle,
+        backupDirectory: URL,
+        retentionCount: Int = 10,
+        coordinator: FileCoordinating = NSFileCoordinatorAdapter()
+    ) {
         self.engine = engine
         self.backupDirectory = backupDirectory
         self.retentionCount = retentionCount
+        self.coordinator = coordinator
     }
 
     /// Replaces `original`'s contents with `temp`'s. Safe to call
@@ -48,16 +62,21 @@ public struct AtomicSaver: Sendable {
     public func replace(original: URL, withTemp temp: URL, now: Date = Date()) async throws -> URL {
         try await validate(temp)
 
-        if FileManager.default.fileExists(atPath: original.path) {
-            try captureVersionedBackup(of: original, now: now)
-        }
-
         do {
-            return try FileManager.default.replaceItemAt(
-                original,
-                withItemAt: temp,
-                backupItemName: nil
-            ) ?? original
+            var replaced = original
+            try coordinator.coordinateReplace(of: original) { coordinatedURL in
+                if FileManager.default.fileExists(atPath: coordinatedURL.path) {
+                    try captureVersionedBackup(of: coordinatedURL, now: now)
+                }
+                replaced = try FileManager.default.replaceItemAt(
+                    coordinatedURL,
+                    withItemAt: temp,
+                    backupItemName: nil
+                ) ?? coordinatedURL
+            }
+            return replaced
+        } catch let error as AtomicSaveError {
+            throw error
         } catch {
             throw AtomicSaveError.ioError("\(error)")
         }

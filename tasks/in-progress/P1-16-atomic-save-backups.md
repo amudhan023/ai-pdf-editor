@@ -4,7 +4,17 @@
 
 **Epic:** E2 · **Primary package:** `Packages/DocumentSession` (save path) + engine save in `DocEngineHost` `[INTEGRATION]` · **Complexity:** L · **Priority:** Critical
 
-## Status (2026-07-13 update)
+## Status (2026-07-13 update #2)
+
+**Done this iteration:** `NSFileCoordinator`-based coordination for the atomic replace (`FileCoordinating` protocol + `NSFileCoordinatorAdapter`, injected into `AtomicSaver`, default real coordinator, `Mock*` for tests). The backup capture and the `replaceItemAt` swap now both run inside one `coordinateReplace(of:.forReplacing)` call around `original`. Existing tests pass unmodified (regression proof); two new tests cover coordinator routing and coordination-failure abort-safety (same "original untouched, no backup written" contract as validation failure).
+
+**Still not done (unchanged from below, next iteration's scope):**
+- `DocEngineHost` engine-side save modes (full-rewrite/incremental) — unblocked now that P0-06 merged, not yet started.
+- Crash-recovery journal (unsaved-changes journal, relaunch recovery offer) — not started.
+- `Scripts/corpus-roundtrip.sh` release-gate suite — not started, still needs corpus per E-005.
+- `docs/adr/ADR-011-save-path.md` (renumbered from the task's stale ADR-009 reference, see below) — not started.
+
+## Status (2026-07-13 update #1)
 
 **Blocker cleared:** P0-06 (render pipeline) merged (`tasks/done/P0-06-render-v1.md`, PR #57). The `DocEngineHost` engine-side save modes item below is no longer blocked — `tasks/escalations/E-008-p0-07-p1-16-documentsession-conflict.md` was filed before this merge landed and is stale; its "live conflict" framing no longer holds now that the blocking dependency is satisfied. Next agent to pick up this task should resume the remaining scope listed below rather than idling on it.
 
@@ -49,3 +59,47 @@ ARCHITECTURE.md §8.4 and driver 5. Every mutating feature (annotations, pages, 
 
 ## Documentation Updates
 - docs/adr/ADR-009-save-path.md.
+
+## Journal
+
+### 2026-07-13 — resumed (this session)
+
+Read: root `CLAUDE.md`, this task file, `Packages/DocumentSession/CLAUDE.md`,
+`Packages/DocumentSession/Sources/DocumentSession/Save/AtomicSave.swift` +
+its test file. Toolchain re-verified (`xcode-select -p` → Xcode 26.6,
+`swift test` works) — E-001/E-002 are stale, confirmed cheaply per their
+own "re-verify before trusting" note. `git log` confirms the atomic-replace
+core already merged (`118131b`, PR #48); no stale local/remote branch
+remained, so re-created `task/P1-16-atomic-save-clean` off fresh `main`.
+
+Per this file's own 2026-07-13 status note (written by a prior iteration
+of this same lineage) and `tasks/escalations/E-008-...md`'s "stale, resume
+rather than idle" verdict, continuing this in-progress claim rather than
+idling on phase-0 (whose only backlog task, P0-07, is still blocked on
+this package).
+
+**Plan for this slice** (one of the four remaining follow-ups — scoping to
+one to keep the PR small per CLAUDE.md §2 "small, verifiable increments";
+the other three — engine save modes, crash-recovery journal,
+corpus-roundtrip.sh — stay open in Status above for the next iteration):
+- Add `NSFileCoordinator`-based coordination around the atomic replace in
+  `AtomicSave.swift`, so iCloud-Drive-resident originals get correct
+  coordination (today's `FileManager.replaceItemAt` call is uncoordinated,
+  which is the gap this task's Requirements line calls out).
+- New `FileCoordinating` protocol + `NSFileCoordinatorAdapter` (real
+  default) so the existing tests keep working unmodified (local files
+  coordinate fine with no iCloud entitlement) and a `Mock*` coordinator can
+  test the error path (coordination failure aborts before `original` is
+  touched, same contract as validation failure).
+- No engine/XPC/API package touched — stays inside `Packages/DocumentSession`,
+  not `[INTEGRATION]` for this slice.
+- Test strategy: existing `AtomicSaveTests` must still pass unmodified
+  (regression proof default coordinator doesn't change behavior for plain
+  local files); new tests for coordinated-write success and coordination-error
+  abort-safety.
+- Risk: NSFileCoordinator requires running with a registered file presenter
+  in some contexts for full iCloud semantics — out of scope here (no
+  `NSFilePresenter` in this session-less path); coordinating without one is
+  still correct per Apple docs (presenter registration is for *receiving*
+  notifications of others' changes, not required to *make* a coordinated
+  write).
