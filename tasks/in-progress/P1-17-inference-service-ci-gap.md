@@ -2,6 +2,8 @@
 
 **Epic:** E12 · **Primary package:** `.github/workflows/ci.yml` · **Complexity:** S · **Priority:** Medium
 
+**Owner:** claude-agent · **Branch:** task/P1-17-inference-service-ci-gap · **Claimed:** 07bc3d2d35bc2a388ea98276f33cebbdbf53081c
+
 ## Goal
 `Services/InferenceService` (merged in P1-12) has never been built/tested by CI's `services` job — only `Services/DocEngineService` is listed. Add the missing step so it stops being silently unverified.
 
