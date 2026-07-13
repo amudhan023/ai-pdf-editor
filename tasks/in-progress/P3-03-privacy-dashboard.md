@@ -1,5 +1,7 @@
 # P3-03 — Privacy Dashboard
 
+**Owner:** claude-agent · **Branch:** task/P3-03-privacy-dashboard · **Claimed:** 328f3d9df8ea6f86aa6a17adac03791b5acb6025
+
 **Epic:** E14 · **Primary package:** `Packages/PrivacyDashboard` · **Complexity:** M · **Priority:** High
 
 ## Goal
