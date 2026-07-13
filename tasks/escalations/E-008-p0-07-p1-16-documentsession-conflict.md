@@ -2,6 +2,8 @@
 
 **Filed:** 2026-07-12 · **Severity:** Medium (blocks phase-0-foundation SELECT, not a security/corruption issue)
 
+**Status (2026-07-13): stale.** This escalation reasoned from P1-16's remaining `DocEngineHost` save-mode scope being blocked on P0-06. P0-06 has since merged (PR #57). See `tasks/in-progress/P1-16-atomic-save-backups.md`'s updated Status section — P1-16 should now be resumed to completion (Option 2 below) rather than idled on. Left in place for history; do not re-file a new escalation for the same underlying conflict without checking this file first.
+
 ## Problem
 
 `tasks/backlog/phase-0-foundation/P0-07-shell-viewer-app.md` is the only

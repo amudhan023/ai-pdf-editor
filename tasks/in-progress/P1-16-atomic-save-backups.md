@@ -4,6 +4,10 @@
 
 **Epic:** E2 · **Primary package:** `Packages/DocumentSession` (save path) + engine save in `DocEngineHost` `[INTEGRATION]` · **Complexity:** L · **Priority:** Critical
 
+## Status (2026-07-13 update)
+
+**Blocker cleared:** P0-06 (render pipeline) merged (`tasks/done/P0-06-render-v1.md`, PR #57). The `DocEngineHost` engine-side save modes item below is no longer blocked — `tasks/escalations/E-008-p0-07-p1-16-documentsession-conflict.md` was filed before this merge landed and is stale; its "live conflict" framing no longer holds now that the blocking dependency is satisfied. Next agent to pick up this task should resume the remaining scope listed below rather than idling on it.
+
 ## Status (2026-07-11)
 
 **Done:** the `Packages/DocumentSession` atomic-replace core — `AtomicSaver.replace(original:withTemp:)` using `FileManager.replaceItemAt` (verified: no window where the original file is missing or partially written, even across a crash), reopen-based validation via an injected `PDFEngineAPI.DocumentLifecycle`, and versioned/rotated backups. See `docs/ENGINEERING_AUDIT_2026-07-11.md` finding C-1 for the defect history this replaces (an earlier scaffold on a different, now-abandoned branch was not actually atomic and broke on a document's second save).
