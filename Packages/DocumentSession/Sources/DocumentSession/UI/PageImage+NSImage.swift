@@ -1,14 +1,15 @@
 import AppKit
+import PDFEngineAPI
 
-extension PageImage {
+extension RenderedTile {
     /// Converts the tile's raw RGBA8 bytes into a displayable `NSImage`.
     /// `DocumentSession`'s import allowlist has no `CoreGraphics` entry
     /// (see package `CLAUDE.md`), so this goes through `NSBitmapImageRep`
     /// rather than `CGImage` directly — AppKit alone is enough to build one
     /// from a raw bitmap plane.
     public func makeNSImage() -> NSImage {
-        let width = tile.pixelWidth
-        let height = tile.pixelHeight
+        let width = pixelWidth
+        let height = pixelHeight
         let image = NSImage(size: NSSize(width: width, height: height))
 
         guard width > 0, height > 0,
@@ -27,7 +28,7 @@ extension PageImage {
               let planeData = rep.bitmapData
         else { return image }
 
-        tile.pixelData.withUnsafeBytes { source in
+        pixelData.withUnsafeBytes { source in
             guard let base = source.bindMemory(to: UInt8.self).baseAddress else { return }
             planeData.update(from: base, count: min(source.count, width * height * 4))
         }
