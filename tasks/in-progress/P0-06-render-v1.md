@@ -1,5 +1,7 @@
 # P0-06 — DocEngine.xpc Render Pipeline v1
 
+**Owner:** claude-agent · **Branch:** task/P0-06-render-v1 · **Claimed:** d74807ff70e9f6b3b7dee148711a907c22bc6cf0
+
 **Epic:** E2 · **Primary package:** `Packages/DocEngineHost` · **Complexity:** L · **Priority:** Critical
 
 ## Goal
