@@ -1,5 +1,7 @@
 # P1-01 — Viewer: Continuous Scroll, Zoom & Real Tiling
 
+**Owner:** claude-agent · **Branch:** task/P1-01-scroll-zoom-tiling · **Claimed:** de3bafa0cb2b55d7025dfcb5e6a2269dd2098b62
+
 **Epic:** E3 · **Primary package:** `Packages/DocumentSession` (viewer views) · **Complexity:** L · **Priority:** High
 
 ## Goal
