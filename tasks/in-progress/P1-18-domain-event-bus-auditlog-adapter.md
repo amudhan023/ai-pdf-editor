@@ -1,6 +1,8 @@
 # P1-18 — Wire Platform's DomainEventBus to AuditLog
 
-**Epic:** E14 · **Primary package:** first session/composition-root package that needs both (e.g. `DocumentSession`, `AutofillSession`, or `App`) `[INTEGRATION]` · **Complexity:** S · **Priority:** Medium
+**Owner:** claude-agent · **Branch:** task/P1-18-domain-event-bus-auditlog-adapter · **Claimed:** 1fc5f3412824c247ab9456c72eaab5e7c69f9aab
+
+**Epic:** E14 · **Primary package:** `Packages/VaultStore` (owns `VaultLockController`/`SQLCipherVaultStore`, the first real emitter of privileged vault-operation events) `[INTEGRATION]` · **Complexity:** S · **Priority:** Medium
 
 ## Goal
 Connect `Platform.DomainEventBus` (P1-15) to `AuditLog.AuditLogStore` so privileged operations (vault reads/writes, ingestion, fills, auth) actually produce durable audit entries at runtime, not just in tests.
