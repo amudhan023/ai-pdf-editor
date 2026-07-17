@@ -1,5 +1,7 @@
 # P1-20 — Deflake VaultLockController Idle-Timeout Test
 
+**Owner:** claude-agent · **Branch:** task/P1-20-deflake-vault-idle-timeout · **Claimed:** 5fb88d3
+
 **Epic:** E9 · **Primary package:** `Packages/VaultStore` · **Complexity:** S · **Priority:** Medium
 
 ## Goal

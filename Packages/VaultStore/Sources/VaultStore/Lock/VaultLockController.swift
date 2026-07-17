@@ -23,7 +23,14 @@ enum VaultLockPhase: Sendable, Equatable {
 /// all four immediately — nothing here survives a lock/idle-timeout
 /// (ARCHITECTURE.md §6.2).
 public actor VaultLockController {
+    /// Seam for the idle monitor's deadline wait, injectable so tests can
+    /// resolve deadlines deterministically instead of racing `Task.sleep`
+    /// against the assertion (the P1-20 flake). Production always uses the
+    /// `Task.sleep` default; the seam is internal on purpose.
+    typealias IdleWait = @Sendable (_ timeout: TimeInterval) async throws -> Void
+
     private let masterKeyManager: MasterKeyManager
+    private let idleWait: IdleWait
     private var unlocked: UnlockedKeys?
     private var phase: VaultLockPhase = .locked
     private var lastAuthenticatedAt: Date?
@@ -40,7 +47,14 @@ public actor VaultLockController {
     }
 
     public init(masterKeyManager: MasterKeyManager) {
+        self.init(masterKeyManager: masterKeyManager, idleWait: { timeout in
+            try await Task.sleep(nanoseconds: UInt64(max(timeout, 0) * 1_000_000_000))
+        })
+    }
+
+    init(masterKeyManager: MasterKeyManager, idleWait: @escaping IdleWait) {
         self.masterKeyManager = masterKeyManager
+        self.idleWait = idleWait
         (events, eventContinuation) = AsyncStream.makeStream(of: VaultLockEvent.self)
     }
 
@@ -168,8 +182,8 @@ public actor VaultLockController {
         idleMonitorTask?.cancel()
         idleMonitorTask = nil
         guard phase == .unlocked, let idleTimeout else { return }
-        idleMonitorTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(max(idleTimeout, 0) * 1_000_000_000))
+        idleMonitorTask = Task { [weak self, idleWait] in
+            try? await idleWait(idleTimeout)
             guard !Task.isCancelled, let self else { return }
             await self.lockDueToIdleTimeout()
         }

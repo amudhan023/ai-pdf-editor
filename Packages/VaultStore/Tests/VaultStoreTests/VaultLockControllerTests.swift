@@ -32,7 +32,43 @@ private struct FakeLocalAuthenticator: LocalAuthenticating {
     }
 }
 
+/// Test double for `VaultLockController.IdleWait`: every idle-deadline wait
+/// parks on a continuation the test resolves explicitly with `fire(_:)`, so
+/// "the timeout elapsed" is a test-controlled event rather than a race
+/// between `Task.sleep` and the assertion (the P1-20 flake).
+private actor IdleWaitGate {
+    private var pending: [Int: CheckedContinuation<Void, Never>] = [:]
+    private(set) var startedCount = 0
+
+    func wait() async {
+        let id = startedCount
+        startedCount += 1
+        await withCheckedContinuation { pending[id] = $0 }
+    }
+
+    /// Resumes wait number `id` (0-based, in start order) as if its deadline
+    /// elapsed. Firing a wait whose monitor task was since cancelled is the
+    /// point of several tests — the controller must ignore it.
+    func fire(_ id: Int) {
+        pending.removeValue(forKey: id)?.resume()
+    }
+}
+
 final class VaultLockControllerTests: XCTestCase {
+    /// The monitor task registers its wait asynchronously after
+    /// `setIdleTimeout`/`noteActivity` return; yielding until it appears is
+    /// scheduler-independent (the cap only bounds a genuinely hung failure).
+    private func expectStartedWaits(_ count: Int, on gate: IdleWaitGate,
+                                    file: StaticString = #filePath, line: UInt = #line) async {
+        var attempts = 0
+        while await gate.startedCount < count, attempts < 10_000 {
+            await Task.yield()
+            attempts += 1
+        }
+        let started = await gate.startedCount
+        XCTAssertEqual(started, count, "expected \(count) idle waits to have started", file: file, line: line)
+    }
+
     private func controller(name: String = #function) -> VaultLockController {
         let suffix = UUID().uuidString
         let keychain = KeychainStore(service: "com.vaultform.vault.tests.\(name).\(suffix)")
@@ -216,20 +252,63 @@ final class VaultLockControllerTests: XCTestCase {
             masterKeyAccount: "masterkey.se-wrapped", recoveryWrappedAccount: "masterkey.recovery-wrapped"
         )
         _ = try await manager.provision()
-        let controller = VaultLockController(masterKeyManager: manager)
+        let gate = IdleWaitGate()
+        let controller = VaultLockController(masterKeyManager: manager, idleWait: { _ in await gate.wait() })
 
         try await controller.unlock()
         await controller.setIdleTimeout(0.2)
+        await expectStartedWaits(1, on: gate)
 
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Activity supersedes the pending deadline (wait 0) with a fresh one
+        // (wait 1). Firing the superseded deadline afterwards must not lock —
+        // this is the "activity inside the window defers the auto-lock"
+        // contract, without the wall-clock race the old sleeps had.
         await controller.noteActivity()
-        try await Task.sleep(nanoseconds: 150_000_000)
+        await expectStartedWaits(2, on: gate)
+        await gate.fire(0)
+        for _ in 0..<100 { await Task.yield() }
         let phaseAfterActivity = await controller.lockPhase
         XCTAssertEqual(phaseAfterActivity, .unlocked, "activity inside the window must defer the auto-lock")
 
-        try await Task.sleep(nanoseconds: 300_000_000)
+        await gate.fire(1)
+        for await event in controller.events {
+            guard case .didLock(let reason, _) = event else { continue }
+            XCTAssertEqual(reason, .idleTimeout)
+            break
+        }
         let phaseAfterIdle = await controller.lockPhase
         XCTAssertEqual(phaseAfterIdle, .locked, "idle past the timeout with no activity must auto-lock")
+    }
+
+    /// Boundary case: the deadline elapses with no interim activity, and
+    /// activity arrives only after the auto-lock has landed — it must not
+    /// resurrect the monitor (no new wait while locked), and the vault stays
+    /// locked.
+    func testActivityAfterDeadlineHasFiredDoesNotDeferOrRestart() async throws {
+        let keychain = KeychainStore(service: "com.vaultform.vault.tests.\(#function).\(UUID().uuidString)")
+        let manager = MasterKeyManager(
+            keychain: keychain, seBox: MockKeyWrappingProvider(),
+            masterKeyAccount: "masterkey.se-wrapped", recoveryWrappedAccount: "masterkey.recovery-wrapped"
+        )
+        _ = try await manager.provision()
+        let gate = IdleWaitGate()
+        let controller = VaultLockController(masterKeyManager: manager, idleWait: { _ in await gate.wait() })
+
+        try await controller.unlock()
+        await controller.setIdleTimeout(0.2)
+        await expectStartedWaits(1, on: gate)
+
+        await gate.fire(0)
+        for await event in controller.events {
+            if case .didLock(.idleTimeout, _) = event { break }
+        }
+
+        await controller.noteActivity()
+        for _ in 0..<100 { await Task.yield() }
+        let started = await gate.startedCount
+        XCTAssertEqual(started, 1, "activity while locked must not start a new idle monitor")
+        let phase = await controller.lockPhase
+        XCTAssertEqual(phase, .locked)
     }
 
     func testRecoveryCodeUnlocksAfterSimulatedBiometryLoss() async throws {
