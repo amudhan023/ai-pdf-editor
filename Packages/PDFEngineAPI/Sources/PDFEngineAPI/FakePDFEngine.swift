@@ -4,12 +4,13 @@ import Foundation
 /// consumers' tests (CLAUDE.md §5's `Fake*` naming: shipped in the API
 /// package, not a test-local `Mock*`). Backs nothing to disk; `open` always
 /// synthesizes a single default US-Letter page rather than parsing `url`.
-public actor FakePDFEngine: PageRenderer, TextEditor, PageOrganizer, AnnotationStore, FormModel, DocumentLifecycle {
+public actor FakePDFEngine: PageRenderer, TextEditor, PageOrganizer, AnnotationStore, FormModel, DocumentLifecycle, OutlineReader {
     private struct State {
         var pages: [PageMetadata]
         var textRuns: [TextRun]
         var annotations: [Annotation]
         var fields: [String: FormField]
+        var outline: [OutlineNode]
     }
 
     private var documents: [DocumentHandle: State] = [:]
@@ -27,7 +28,7 @@ public actor FakePDFEngine: PageRenderer, TextEditor, PageOrganizer, AnnotationS
     public func seedDocument(pageCount: Int = 1, pageSize: PageSize = PageSize(width: 612, height: 792)) -> DocumentHandle {
         let handle = DocumentHandle()
         let pages = (0..<pageCount).map { PageMetadata(index: PageIndex($0), size: pageSize, rotation: .none) }
-        documents[handle] = State(pages: pages, textRuns: [], annotations: [], fields: [:])
+        documents[handle] = State(pages: pages, textRuns: [], annotations: [], fields: [:], outline: [])
         return handle
     }
 
@@ -40,6 +41,12 @@ public actor FakePDFEngine: PageRenderer, TextEditor, PageOrganizer, AnnotationS
     public func seedTextRuns(_ runs: [TextRun], for document: DocumentHandle) throws {
         var state = try state(for: document)
         state.textRuns.append(contentsOf: runs)
+        documents[document] = state
+    }
+
+    public func seedOutline(_ nodes: [OutlineNode], for document: DocumentHandle) throws {
+        var state = try state(for: document)
+        state.outline = nodes
         documents[document] = state
     }
 
@@ -192,5 +199,11 @@ public actor FakePDFEngine: PageRenderer, TextEditor, PageOrganizer, AnnotationS
             currentValue: value
         )
         documents[document] = state
+    }
+
+    // MARK: - OutlineReader
+
+    public func outline(of document: DocumentHandle) async throws -> [OutlineNode] {
+        try state(for: document).outline
     }
 }

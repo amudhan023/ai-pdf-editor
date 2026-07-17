@@ -36,36 +36,18 @@ private struct LoadedDocumentView: View {
     @State private var viewportSize: CGSize = .zero
     @State private var didRestoreScroll = false
     @State private var referenceMetadata: PageMetadata?
+    @State private var showSidebar = true
     @GestureState private var pinchMagnification: Double = 1.0
 
     var body: some View {
         VStack(spacing: 0) {
             zoomToolbar
-            GeometryReader { proxy in
-                ScrollViewReader { scrollProxy in
-                    ScrollView(.vertical) {
-                        LazyVStack(spacing: 16) {
-                            ForEach(0..<pageCount, id: \.self) { index in
-                                PageTileView(
-                                    viewModel: viewModel,
-                                    page: PageIndex(index),
-                                    zoomMode: viewModel.zoomMode,
-                                    viewportSize: proxy.size,
-                                    onMetadata: { referenceMetadata = referenceMetadata ?? $0 }
-                                )
-                                .id(index)
-                                .onAppear { recordScrollPosition(page: index) }
-                            }
-                        }
-                        .padding()
-                        .scaleEffect(pinchMagnification)
-                    }
-                    .onAppear {
-                        viewportSize = proxy.size
-                        restoreScrollIfNeeded(scrollProxy: scrollProxy)
-                    }
-                    .onChange(of: proxy.size) { _, newValue in viewportSize = newValue }
+            HSplitView {
+                if showSidebar {
+                    DocumentSidebarView(viewModel: viewModel, pageCount: pageCount)
+                        .frame(minWidth: 140, idealWidth: 180, maxWidth: 280)
                 }
+                pageScroller
             }
         }
         .gesture(
@@ -75,8 +57,47 @@ private struct LoadedDocumentView: View {
         )
     }
 
+    private var pageScroller: some View {
+        GeometryReader { proxy in
+            ScrollViewReader { scrollProxy in
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 16) {
+                        ForEach(0..<pageCount, id: \.self) { index in
+                            PageTileView(
+                                viewModel: viewModel,
+                                page: PageIndex(index),
+                                zoomMode: viewModel.zoomMode,
+                                viewportSize: proxy.size,
+                                onMetadata: { referenceMetadata = referenceMetadata ?? $0 }
+                            )
+                            .id(index)
+                            .onAppear { viewModel.pageDidBecomeVisible(PageIndex(index)) }
+                        }
+                    }
+                    .padding()
+                    .scaleEffect(pinchMagnification)
+                }
+                .onAppear {
+                    viewportSize = proxy.size
+                    restoreScrollIfNeeded(scrollProxy: scrollProxy)
+                }
+                .onChange(of: proxy.size) { _, newValue in viewportSize = newValue }
+                .onChange(of: viewModel.navigationTarget) { _, target in
+                    guard let target else { return }
+                    scrollProxy.scrollTo(target.page.value, anchor: .top)
+                }
+            }
+        }
+    }
+
     private var zoomToolbar: some View {
         HStack(spacing: 12) {
+            Button {
+                showSidebar.toggle()
+            } label: {
+                Image(systemName: "sidebar.left")
+            }
+            .keyboardShortcut("s", modifiers: [.command, .control])
             Button("Fit Width") { viewModel.setZoomMode(.fitWidth) }
             Button("Fit Page") { viewModel.setZoomMode(.fitPage) }
             Button {
@@ -109,16 +130,6 @@ private struct LoadedDocumentView: View {
             pageSize: referenceMetadata.size,
             viewportSize: (Double(viewportSize.width), Double(viewportSize.height))
         )
-    }
-
-    /// Page-granularity scroll restoration: the last page whose tile view
-    /// entered the lazily-rendered range is recorded as "current." Within-
-    /// page vertical fraction isn't tracked (always 0 / page top) — precise
-    /// sub-page offset tracking needs continuous scroll-geometry plumbing
-    /// SwiftUI's `ScrollView` doesn't expose without an AppKit bridge, which
-    /// is out of this pass's scope.
-    private func recordScrollPosition(page: Int) {
-        viewModel.recordScrollPosition(ScrollPosition(page: page, verticalFraction: 0))
     }
 
     private func restoreScrollIfNeeded(scrollProxy: ScrollViewProxy) {

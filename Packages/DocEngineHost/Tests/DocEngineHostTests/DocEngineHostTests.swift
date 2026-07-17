@@ -171,6 +171,44 @@ final class PDFiumEngineTests: XCTestCase {
         try await engine.close(document)
     }
 
+    /// Pins the manifest row `synthetic-outlined-nested`'s `outline`
+    /// expectations against real PDFium parsing (P1-02/ADR-013): nesting, an
+    /// XYZ destination with an explicit zoom, and a structural heading with
+    /// no `/Dest` surfacing as `destinationPage == nil`, not a fabricated
+    /// page target.
+    func testOutlineReaderParsesNestedBookmarksZoomAndUnlinkedHeading() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("synthetic/outlined-nested.pdf"))
+
+        let roots = try await engine.outline(of: document)
+
+        XCTAssertEqual(roots.count, 2)
+        XCTAssertEqual(roots.first?.title, "Chapter 1")
+        XCTAssertEqual(roots.first?.destinationPage, PageIndex(0))
+        XCTAssertNil(roots.first?.zoom, "Chapter 1's XYZ dest has a null zoom slot")
+
+        let child = roots.first?.children.first
+        XCTAssertEqual(child?.title, "Section 1.1")
+        XCTAssertEqual(child?.destinationPage, PageIndex(2))
+        XCTAssertEqual(child?.zoom, 1.5)
+        XCTAssertEqual(child?.children.isEmpty, true)
+
+        XCTAssertEqual(roots.last?.title, "Unlinked Heading")
+        XCTAssertNil(roots.last?.destinationPage)
+        try await engine.close(document)
+    }
+
+    /// `PDFEngineConformanceSuite.verifyOutlineReaderEmpty` (P1-02/ADR-013)
+    /// against a real PDFium-backed engine: the starter IRS fixtures have no
+    /// `/Outlines` entry, so an empty result must not be an error or a
+    /// fabricated entry.
+    func testOutlineReaderConformanceAgainstRealFixtureWithNoOutline() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+        try await PDFEngineConformanceSuite.verifyOutlineReaderEmpty(engine, document: document)
+        try await engine.close(document)
+    }
+
     func testMultipleDocumentsOpenIndependently() async throws {
         let engine = PDFiumEngine()
         let first = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))

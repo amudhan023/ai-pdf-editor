@@ -104,4 +104,14 @@ public enum PDFEngineConformanceSuite {
             throw ConformanceFailure("setValue(_:for:) must throw for an unknown field id")
         }
     }
+
+    /// Exercises `OutlineReader` against a document with no seeded outline —
+    /// the only case common to every implementation, real or fake: an empty
+    /// result must not be an error.
+    public static func verifyOutlineReaderEmpty<E: OutlineReader>(_ engine: E, document: DocumentHandle) async throws {
+        let roots = try await engine.outline(of: document)
+        guard roots.isEmpty else {
+            throw ConformanceFailure("outline(of:) for a document with no outline must return an empty array, not throw or fabricate entries")
+        }
+    }
 }

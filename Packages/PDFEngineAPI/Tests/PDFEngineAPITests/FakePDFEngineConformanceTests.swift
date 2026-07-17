@@ -25,4 +25,10 @@ final class FakePDFEngineConformanceTests: XCTestCase {
         ], for: document)
         try await PDFEngineConformanceSuite.verifyFormModel(engine, document: document)
     }
+
+    func testOutlineReaderConformance() async throws {
+        let engine = FakePDFEngine()
+        let document = await engine.seedDocument()
+        try await PDFEngineConformanceSuite.verifyOutlineReaderEmpty(engine, document: document)
+    }
 }
