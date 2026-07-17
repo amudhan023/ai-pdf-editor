@@ -12,7 +12,7 @@ implementation_status: scaffolded
 
 ## Current state
 
-`Packages/VaultManagerUI/Sources/VaultManagerUI/VaultManagerUI.swift` is a 4-line placeholder. No views or view models exist yet.
+`Packages/VaultManagerUI/Sources/VaultManagerUI/VaultManagerUI.swift` is a 4-line placeholder. No views or view models exist yet — **P1-11 is in progress** (check `tasks/in-progress/` before touching this package).
 
 ## Design intent
 

@@ -18,6 +18,7 @@ implementation_status: implemented
 - `PageOrganizer` — `apply(_ operation: PageOperation, to:)`, where `PageOperation` is `.insert`/`.delete`/`.reorder`/`.rotate`, single-enum-per-op so an undo stack has one exhaustively-switchable log entry shape.
 - `AnnotationStore` — CRUD over `Annotation` (subtype, bounding box, color, contents, author, modifiedAt).
 - `FormModel` — `fields(of:) -> [FormField]`, `setValue(_:for:in:)`. `FormField` carries name (fully-qualified, dot-separated — also its stable identity), page, rect, kind, format hint, tooltip, tab order, read-only flag, current value.
+- `OutlineReader` (added by **ADR-013**, P1-02) — `outline(of:) -> [OutlineNode]`, the document's bookmark/TOC tree. An empty array means "no outline," never an error. `OutlineNode`: title, optional `destinationPage`, optional `zoom`, children.
 
 ## Key types
 
@@ -37,4 +38,4 @@ Foundation only (enforced by `Scripts/import-allowlist.txt`, checked by `Scripts
 
 `RenderedTile.pixelData` being `Data` here (vs. `IOSurface` in the real transport) is intentional simplicity for testing against `FakePDFEngine` — don't read it as the final wire shape.
 
-Consumed by: `DocEngineHost` (implements `DocumentLifecycle` + `PageRenderer` against real PDFium — see [../engines/doc-engine-host.md](../engines/doc-engine-host.md)), `DocumentSession` (drives open/render/atomic-save for the viewer — see [../sessions/document-session.md](../sessions/document-session.md)), `AutofillEngine`; `IngestionPipeline` and `FormKnowledge` are still stubs.
+Consumed by: `DocEngineHost` (implements lifecycle/render/outline against real PDFium), `DocumentSession` (viewer + sidebar), `AutofillEngine`, `IngestionPipeline`, `FormKnowledge` (the last two still stubs — see [../engines/index.md](../engines/index.md), [../sessions/index.md](../sessions/index.md)).

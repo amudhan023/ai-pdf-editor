@@ -1,7 +1,7 @@
 ---
 type: package
 title: Platform
-description: OS service wrappers — XPC transport, LocalAuthenticator (biometric auth), and the domain event bus implemented; Keychain/file-coordination wrappers still planned.
+description: OS service wrappers — the implemented XPC transport layer, plus planned Keychain/LocalAuthentication/file-coordination/event-bus wrappers.
 tags: [package, infrastructure, xpc, transport]
 implementation_status: partial
 ---
@@ -23,16 +23,11 @@ A generic, typed pair, one instance per (Request, Response) DTO route:
 
 ## What's proven vs. not
 
-Proven: the transport contract via same-process anonymous `NSXPCListener`s — genuine XPC IPC, verified by `XPCTransportTests` and `Services/DocEngineService`'s self-check (see [../services/xpc-transport.md](../services/xpc-transport.md), [../services/doc-engine-service.md](../services/doc-engine-service.md)). Not yet proven: real cross-process operation between independently-spawned processes without launchd/bundle registration — confirmed empirically not to work (ADR-002); needs a proper `.xpc` bundle embedded in a real Xcode app target. P0-07 shipped the shell app with the engine wired in-process instead, so this split remains follow-up scope.
+Proven: the transport contract via same-process anonymous `NSXPCListener`s — genuine XPC IPC, verified by `XPCTransportTests` and `Services/DocEngineService`'s self-check (see [../services/xpc-transport.md](../services/xpc-transport.md), [../services/doc-engine-service.md](../services/doc-engine-service.md)). Not yet proven: real cross-process operation between independently-spawned processes without launchd/bundle registration — confirmed empirically not to work (ADR-002); needs a proper `.xpc` bundle (task P0-07).
 
-## Also implemented since the P0-05 transport
+## Built since / not yet built
 
-- **`Auth/LocalAuthenticator`** (P1-09) — the `LAContext` biometric-auth wrapper, consumed by `VaultStore`'s `VaultLockController` for unlock/re-auth ([../engines/vault-store.md](../engines/vault-store.md)).
-- **`Events/DomainEventBus`** (P1-18) — the typed domain event bus; `VaultStore`'s `DomainEventAuditAdapter` bridges its events durably into `AuditLog`.
-
-## Not yet built
-
-Keychain and file-coordination wrappers as `Platform` concerns — today `KeychainStore` lives in `VaultStore` and `FileCoordinating` in `DocumentSession`, colocated with their sole consumers. `Platform.swift` itself is still a placeholder; real content lives in the `XPC/`, `Auth/`, and `Events/` subtrees.
+Since the original bundle: `Events/DomainEventBus.swift` (the domain event bus — see [../architecture/layered-architecture.md](../architecture/layered-architecture.md); AuditLog subscribes via its P1-18 adapter) and `Auth/LocalAuthenticator.swift` (`LAContext` wrapper, used by VaultStore's lock flow). Still not built: the Keychain wrapper as a general Platform surface (VaultStore has its own `KeychainStore` today) and file-coordination helpers (DocumentSession uses `NSFileCoordinator` directly through its own `FileCoordinating` seam).
 
 ## Allowed imports
 

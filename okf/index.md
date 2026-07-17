@@ -9,7 +9,7 @@ tags: [overview, entry-point, vaultform]
 
 Vaultform is a native macOS PDF editor with a privacy-first, local-only AI Autofill Assistant. Personal data lives in an encrypted local vault; PDF forms (including scanned/flat ones) are filled from it with full user review and zero network dependency. Full product framing lives in `docs/PRD.md`; full architecture in `docs/ARCHITECTURE.md`; the fifteen immutable rules in `docs/CONSTITUTION.md`.
 
-This bundle reflects repo state as of commit `55b62d3` (2026-07-16). **This is a mid-build codebase**: the vault stack, audit log, inference plumbing, PDFium render pipeline, and document viewer now have real implementations, while the autofill/ingestion sessions and several other packages remain single-file scaffolds waiting on their task to be picked up. Every concept file below carries an `implementation_status` in its frontmatter (`implemented` / `partial` / `scaffolded` / `planned`) — trust that field over any prose describing "what a package does," since prose often describes the *design intent* (from ARCHITECTURE.md) rather than code that exists yet.
+This bundle reflects repo state as of 2026-07-16 (mid phase-1, post P1-02). **Most infrastructure/viewer packages now have real, tested implementations**; the autofill/ingestion session layer and a few UI surfaces are still scaffolds waiting on their tasks. Every concept file below carries an `implementation_status` in its frontmatter (`implemented` / `partial` / `scaffolded` / `planned`) — trust that field over any prose describing "what a package does," since prose often describes the *design intent* (from ARCHITECTURE.md) rather than code that exists yet.
 
 ## How to use this bundle
 
@@ -36,9 +36,11 @@ This bundle is a map, not a replacement for the territory. For anything load-bea
 - `docs/specs/vault-schema.md`, `docs/specs/policy-decision-table.md` — canonical catalogs (field paths, policy rules)
 - Each package's own `Packages/<Name>/CLAUDE.md` — purpose, invariants, forbidden imports, gotchas, kept ≤60 lines and updated in the same PR as behavior changes
 
-## Implementation snapshot (as of this bundle's writing)
+## Implementation snapshot (as of this bundle's writing, 2026-07-16)
 
-**Substantively implemented:** `PDFEngineAPI`, `VaultAPI`, `InferenceAPI` (all three frozen-seam contract packages), `PolicyKit`, `AuditLog`, `VaultStore` (SQLCipher store, key hierarchy, lock/auth, crypto-shred), `Platform` (XPC transport + `LocalAuthenticator` + `DomainEventBus`).
-**Partial:** `DocEngineHost` (PDFium document lifecycle + tiled rendering; no text editing/forms/save yet), `DocumentSession` (atomic save path + continuous-scroll viewer with tiling/zoom; no undo stack yet), `InferenceHost` (model registry, router, memory governor, Vision OCR, embeddings; Core ML/FoundationModels adapters are placeholders), `AutofillEngine` (alias-dictionary matcher rung only), `PrivacyDashboard` (view-models only, no views), `App/` (minimal shell viewer app wiring `PDFiumEngine` in-process — the real `DocEngine.xpc` process split is still pending).
-**Skeleton/self-check only:** all three `Services/*` executables (`DocEngineService`, `InferenceService`, `VaultService`) — ping self-checks proving transport linkage, not real service wiring.
-**4-line placeholder stubs (no real logic yet):** `AutofillSession`, `IngestionSession`, `IngestionPipeline`, `FormKnowledge`, `VaultManagerUI`.
+**Substantively implemented:** `PDFEngineAPI` (+ `OutlineReader`, ADR-013), `VaultAPI`, `InferenceAPI`, `PolicyKit`, `VaultStore` (SQLCipher store, key hierarchy, lock/auth, CRUD+history), `AuditLog` (hash-chained log + event-bus adapter), `Platform` (XPC transport, domain event bus, auth helpers).
+**Partial (real, tested logic for a subset of the charter — the module map says which subset):** `DocumentSession` (open/atomic-save/tiled viewer/thumbnail+outline sidebar; no undo yet), `DocEngineHost` (PDFium lifecycle/tiled render/outline; no text-edit/page-ops/forms/save yet), `InferenceHost` (registry/router/governor + real Vision OCR), `AutofillEngine` (alias dictionary matcher), `PrivacyDashboard` (data surfaces), `App/` (real composition root + `.app` bundle script).
+**4-line placeholder stubs:** `AutofillSession`, `IngestionSession`, `IngestionPipeline`, `FormKnowledge`, `VaultManagerUI` (P1-11 in progress).
+**Services:** all three (`DocEngineService`, `InferenceService`, `VaultService`) are SwiftPM executables proving the XPC transport via startup self-check; none is a real `.xpc` bundle yet (needs an Xcode app target — documented constraint, see `services/`).
+
+The definitive per-package status table is [architecture/module-map.md](architecture/module-map.md); each package's own `CLAUDE.md` (updated in the same PR as behavior changes, by policy) outranks both.
