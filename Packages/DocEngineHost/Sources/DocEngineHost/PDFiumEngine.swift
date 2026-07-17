@@ -22,7 +22,7 @@ private let pdfiumLibraryInitialized: Bool = {
 /// scope, which was explicitly blocked on this task landing first. Calling
 /// it throws a typed `.unsupportedFeature` error rather than silently
 /// no-op'ing (CLAUDE.md SS15: never fake success).
-public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader {
+public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextEditor {
     private struct OpenDocument {
         let doc: OpaquePointer
         var pages: [Int: OpaquePointer] = [:]
@@ -179,6 +179,77 @@ public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader {
         var units = [UInt16](repeating: 0, count: Int(byteLength) / 2)
         _ = units.withUnsafeMutableBytes { raw in
             FPDFBookmark_GetTitle(bookmark, raw.baseAddress, byteLength)
+        }
+        if let nul = units.firstIndex(of: 0) {
+            units.removeSubrange(nul...)
+        }
+        return String(decoding: units, as: UTF16.self)
+    }
+
+    // MARK: - TextEditor
+
+    /// Extraction only (P1-03). Runs are PDFium's rect-based segmentation
+    /// (`FPDFText_CountRects` over the whole page): one run per rectangle,
+    /// in PDFium's text-object order — which is the PDF's reading order for
+    /// well-formed documents. `TextRun.boundingBox` is the rect in page
+    /// points (bottom-left origin, matching the tile-render coordinate
+    /// contract). Per-glyph quads are deliberately not exposed: `TextRun`
+    /// (frozen seam, ADR-006) carries one box per run; refining to quads is
+    /// a superseding-ADR decision for whoever needs finer anchoring.
+    public func textRuns(of document: DocumentHandle, page: PageIndex) async throws -> [TextRun] {
+        let pagePointer = try loadedPage(document, index: page.value)
+        guard let textPage = FPDFText_LoadPage(pagePointer) else {
+            throw PDFEngineError.corruptDocument(reason: "PDFium: failed to load text page (FPDFText_LoadPage returned null)")
+        }
+        defer { FPDFText_ClosePage(textPage) }
+
+        let rectCount = FPDFText_CountRects(textPage, 0, -1)
+        guard rectCount > 0 else { return [] }
+
+        var runs: [TextRun] = []
+        runs.reserveCapacity(Int(rectCount))
+        for rectIndex in 0..<rectCount {
+            var left: Double = 0, top: Double = 0, right: Double = 0, bottom: Double = 0
+            guard FPDFText_GetRect(textPage, rectIndex, &left, &top, &right, &bottom) != 0 else { continue }
+
+            let text = boundedText(textPage, left: left, top: top, right: right, bottom: bottom)
+            guard !text.isEmpty else { continue }
+
+            // Font size via the character at the rect's center; 0/negative
+            // (no char resolved, e.g. rotated text edge cases) degrades to
+            // 12pt rather than failing the whole page (CLAUDE.md §15: total
+            // on user-input-reachable paths).
+            let charIndex = FPDFText_GetCharIndexAtPos(textPage, (left + right) / 2, (top + bottom) / 2, 2, 2)
+            let fontSize = charIndex >= 0 ? FPDFText_GetFontSize(textPage, charIndex) : 0
+
+            runs.append(TextRun(
+                page: page,
+                text: text,
+                boundingBox: PDFRect(x: left, y: bottom, width: right - left, height: top - bottom),
+                fontSize: fontSize > 0 ? fontSize : 12
+            ))
+        }
+        return runs
+    }
+
+    /// In-place text replacement is the content-stream editing effort
+    /// (`docs/ARCHITECTURE.md` §10.1, "the largest single build effort in
+    /// the project") — its own task, not P1-03's extraction scope. Typed
+    /// failure, never a silent no-op.
+    public func replaceText(of document: DocumentHandle, run: TextRun.ID, with newText: String) async throws {
+        _ = try requireDocument(document)
+        throw PDFEngineError.unsupportedFeature("textReplacementNotYetImplemented")
+    }
+
+    /// `FPDFText_GetBoundedText` is UTF-16LE with the usual
+    /// call-twice-for-length contract (same decode rationale as
+    /// `bookmarkTitle`).
+    private func boundedText(_ textPage: OpaquePointer, left: Double, top: Double, right: Double, bottom: Double) -> String {
+        let length = FPDFText_GetBoundedText(textPage, left, top, right, bottom, nil, 0)
+        guard length > 0 else { return "" }
+        var units = [UInt16](repeating: 0, count: Int(length))
+        _ = units.withUnsafeMutableBufferPointer { buffer in
+            FPDFText_GetBoundedText(textPage, left, top, right, bottom, buffer.baseAddress, length)
         }
         if let nul = units.firstIndex(of: 0) {
             units.removeSubrange(nul...)

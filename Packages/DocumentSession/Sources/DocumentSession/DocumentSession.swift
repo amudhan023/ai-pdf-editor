@@ -35,12 +35,19 @@ public actor DocumentSession {
     private let lifecycle: any DocumentLifecycle
     private let renderer: any PageRenderer
     private let outlineReader: (any OutlineReader)?
+    private let textEditor: (any TextEditor)?
     private var handle: DocumentHandle?
 
-    public init(lifecycle: any DocumentLifecycle, renderer: any PageRenderer, outlineReader: (any OutlineReader)? = nil) {
+    public init(
+        lifecycle: any DocumentLifecycle,
+        renderer: any PageRenderer,
+        outlineReader: (any OutlineReader)? = nil,
+        textEditor: (any TextEditor)? = nil
+    ) {
         self.lifecycle = lifecycle
         self.renderer = renderer
         self.outlineReader = outlineReader
+        self.textEditor = textEditor
     }
 
     public var isOpen: Bool { handle != nil }
@@ -86,6 +93,14 @@ public actor DocumentSession {
     public func outline() async throws -> [OutlineNode] {
         guard let outlineReader else { return [] }
         return try await outlineReader.outline(of: openHandle())
+    }
+
+    /// Empty when no `textEditor` was wired — same degradation contract as
+    /// `outline()`: search over such a session finds nothing rather than
+    /// erroring, and tests that don't care about text stay unaffected.
+    public func textRuns(page: PageIndex) async throws -> [TextRun] {
+        guard let textEditor else { return [] }
+        return try await textEditor.textRuns(of: openHandle(), page: page)
     }
 
     private func openHandle() throws -> DocumentHandle {
