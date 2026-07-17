@@ -28,5 +28,12 @@ scope, not this task's.
 **Verify:** `swift build --package-path App && swift test --package-path App` (wired into
 CI's `app` job, since this directory isn't part of the `Packages/*` matrix).
 
+**Memory pressure (P1-19):** `MemoryPressureMonitor` owns the `DispatchSourceMemoryPressure`
+(warning+critical) and routes events to `DocumentViewModel.handleMemoryPressure()` — the
+source lives here because its handler fires off-actor (see DocumentSession's CLAUDE.md).
+Gotcha: the source activates in `init`; libdispatch crashes on release of a never-activated
+source, so don't reintroduce a separate `start()` state. `simulatePressureEvent()` is the
+test seam (real events need root).
+
 **Invariants:** composition root only — no business logic here; wire protocols to
 implementations and nothing else.
