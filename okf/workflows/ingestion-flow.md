@@ -8,7 +8,7 @@ implementation_status: planned
 
 # Ingestion Flow — Document → Vault
 
-Design intent from `docs/ARCHITECTURE.md` §5.1. Every component named below (`IngestionSession`, `IngestionPipeline`) is currently a stub package — this describes the intended sequence, not running code.
+Design intent from `docs/ARCHITECTURE.md` §5.1. `IngestionSession` and `IngestionPipeline` are still stub packages, so this sequence is not executable end-to-end — but several steps now have real building blocks: Vision OCR in `InferenceHost` (step 3), and `compareRead`, PolicyKit-ticketed writes, batch accept-set commits, and audit-log appends via `VaultStore`/`AuditLog` (steps 6, 9–12).
 
 1. User drops a document (e.g. `passport.pdf`) onto `IngestionSession`.
 2. `IngestionSession` → `DocEngine.xpc`: parse + rasterize, using a security-scoped file handle. Returns page images + native text if any exists.

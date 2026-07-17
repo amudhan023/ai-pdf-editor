@@ -18,11 +18,11 @@ implementation_status: partial
 
 Its own code comment is explicit about scope:
 - **Can prove:** `Platform`'s XPC transport types compile and round-trip correctly inside a real, standalone, separately-launchable/killable executable (not just inside a test process).
-- **Cannot yet prove:** a genuine connection *into* this process from a different, independently-spawned process — that needs launchd/bundle registration (P0-07), confirmed empirically not to work via ad-hoc mechanisms (see [xpc-transport.md](xpc-transport.md)).
+- **Cannot yet prove:** a genuine connection *into* this process from a different, independently-spawned process — that needs launchd/bundle registration, confirmed empirically not to work via ad-hoc mechanisms (see [xpc-transport.md](xpc-transport.md)). P0-07 shipped the shell app with the engine wired in-process instead, so this gap remains.
 
 ## Not yet built
 
-The actual `DocEngineHost` integration (PDFium wrapper, incremental parse, tiled rendering, content-stream editing, AcroForm read/write) — see [../engines/doc-engine-host.md](../engines/doc-engine-host.md), itself still a stub. The real `.xpc` bundle registration into the app target.
+Hosting the real engine: `DocEngineHost`'s `PDFiumEngine` (document lifecycle + tiled rendering) now exists — see [../engines/doc-engine-host.md](../engines/doc-engine-host.md) — but `App/` wires it in-process rather than through this service, and text editing, AcroForm read/write, and save are unbuilt either way. The real `.xpc` bundle registration into the app target also remains pending.
 
 ## A concurrency gotcha worth knowing (from the code's own comments)
 

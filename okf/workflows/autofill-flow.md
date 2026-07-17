@@ -8,7 +8,7 @@ implementation_status: planned
 
 # Autofill Flow — Vault → Form
 
-Design intent from `docs/ARCHITECTURE.md` §5.2. Every component named below (`AutofillSession`, `AutofillEngine`) is currently a stub package — this describes the intended sequence, not running code.
+Design intent from `docs/ARCHITECTURE.md` §5.2. The coordinating `AutofillSession` is still a stub, so this sequence is not executable end-to-end — but several steps now have real building blocks: the alias-matcher rung in `AutofillEngine` (step 3's deterministic half), the embed endpoint in `InferenceHost` (step 4), PolicyKit grants (step 5), and ticketed vault reads via `VaultStore` (step 6).
 
 1. User clicks "Autofill" with a chosen profile (e.g. "Priya") on `AutofillSession`.
 2. `AutofillSession` → `DocEngine.xpc`: get the `FormModel`. If an AcroForm is present, returns the typed field tree directly ([../packages/pdf-engine-api.md](../packages/pdf-engine-api.md)'s `FormField`s). If the form is flat/scanned, falls back to `Inference.xpc` OCR + visual field detection instead (a beta-labeled path).

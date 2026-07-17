@@ -20,4 +20,4 @@ Sub-components envisioned: `Normalizer`, `Classifier` (document type detection),
 
 ## Allowed imports
 
-Foundation, `PDFEngineAPI`, `VaultAPI`, `InferenceAPI` — the latter two are themselves stubs today (VaultAPI's types are real; InferenceAPI is not).
+Foundation, `PDFEngineAPI`, `VaultAPI`, `InferenceAPI` — all three contract packages are now implemented; this package itself is the stub.

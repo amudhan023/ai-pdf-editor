@@ -37,4 +37,4 @@ Foundation only.
 - `FieldValue.string` never carries a bare `String`.
 - No `ExpressibleByStringLiteral` on `FieldPath` — every path must go through the throwing `init(validating:)`.
 
-Consumed by (all currently stubs): `AutofillSession`, `IngestionSession`, `AutofillEngine`, `IngestionPipeline`, `VaultManagerUI`, `PrivacyDashboard`, `VaultStore` (the real implementation, once built). Ticket production/verification is [policy-kit.md](policy-kit.md)'s job.
+Consumed by: `VaultStore` (`SQLCipherVaultStore`, the real implementation — see [../engines/vault-store.md](../engines/vault-store.md)), `PrivacyDashboard` (storage summaries + vault actions), `AutofillEngine` (the alias matcher targets `FieldPath`s); `AutofillSession`, `IngestionSession`, `IngestionPipeline`, `VaultManagerUI` are still stubs. Ticket production/verification is [policy-kit.md](policy-kit.md)'s job.

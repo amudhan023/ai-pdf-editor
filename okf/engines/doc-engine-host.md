@@ -1,23 +1,25 @@
 ---
 type: engine
 title: DocEngineHost
-description: The XPC client + PDFium adapter implementing PDFEngineAPI — the only package allowed to link the PDF engine. Currently a placeholder stub.
-tags: [engine, infrastructure-layer, pdfium, xpc-client, stub]
-implementation_status: scaffolded
+description: The PDFium adapter implementing PDFEngineAPI's DocumentLifecycle + PageRenderer — the only package allowed to link the PDF engine. Text editing, forms, annotations, and save still unbuilt.
+tags: [engine, infrastructure-layer, pdfium, xpc-client]
+implementation_status: partial
 ---
 
 # DocEngineHost
 
-**Purpose (per its `CLAUDE.md`, not yet realized in code):** the XPC client plus PDFium adapter implementing `PDFEngineAPI` ([../packages/pdf-engine-api.md](../packages/pdf-engine-api.md)). Explicitly **the only package in the repo permitted to link the PDF engine**. Runs hostile-input parsing inside `DocEngine.xpc` ([../services/doc-engine-service.md](../services/doc-engine-service.md)).
+**Purpose:** the XPC client plus PDFium adapter implementing `PDFEngineAPI` ([../packages/pdf-engine-api.md](../packages/pdf-engine-api.md)). Explicitly **the only package in the repo permitted to link the PDF engine**. Designed to run hostile-input parsing inside `DocEngine.xpc` ([../services/doc-engine-service.md](../services/doc-engine-service.md)).
 
-## Current state
+## Current state (P0-03, P0-06)
 
-`Packages/DocEngineHost/Sources/DocEngineHost/DocEngineHost.swift` is a 4-line placeholder. No PDFium binding, no `PDFEngineAPI` conformance, and no XPC-client wiring exist yet — `Services/DocEngineService`'s current `main.swift` proves only the transport layer works, not this package's job (parsing/rendering/editing).
+- **`PDFiumEngine`** (`PDFiumEngine.swift`) — an `actor` conforming to `DocumentLifecycle` + `PageRenderer`: real PDFium open/close, page count/metadata, and tiled rendering, against the pinned PDFium binaries vendored in `ThirdParty/pdfium` (P0-03, resolving escalation E-004). A `RenderLatencyBench` executable target backs the perf budget.
+- **Not yet implemented:** `TextEditor`, `PageOrganizer`, `AnnotationStore`, `FormModel` conformances, and save (incremental-update / full-rewrite) — the "largest single build effort in the project" (`docs/ARCHITECTURE.md` §10.1) is still ahead.
+- **Boundary caveat:** `App/` wires `PDFiumEngine` *in-process* today ([../services/doc-engine-service.md](../services/doc-engine-service.md)); the real `DocEngine.xpc` process split needs a proper `.xpc` bundle in an Xcode app target and is filed as follow-up scope.
 
-## Design intent (`docs/ARCHITECTURE.md` §3.2, §10.1)
+## Design (`docs/ARCHITECTURE.md` §3.2, §10.1)
 
-The PDFium wrapper: incremental parse, tiled rendering (via `IOSurface` shared memory across XPC — see [../services/xpc-transport.md](../services/xpc-transport.md)), content-stream editing, annotation serialization, AcroForm read/write, save via incremental-update or full-rewrite mode. Must never touch the network, the vault, or any file it wasn't explicitly handed a security-scoped handle for. This package's build effort is called out in `docs/ARCHITECTURE.md` §10.1 as "the largest single build effort in the project" — the real text-editing layer this product's competitive moat depends on ([../architecture/technology-choices.md](../architecture/technology-choices.md)).
+The PDFium wrapper: incremental parse, tiled rendering (via `IOSurface` shared memory across XPC — see [../services/xpc-transport.md](../services/xpc-transport.md)), content-stream editing, annotation serialization, AcroForm read/write, save via incremental-update or full-rewrite mode. Must never touch the network, the vault, or any file it wasn't explicitly handed a security-scoped handle for. The real text-editing layer is this product's competitive moat ([../architecture/technology-choices.md](../architecture/technology-choices.md)).
 
 ## Allowed imports
 
-Foundation, `PDFEngineAPI`, `Platform`.
+Foundation, `PDFEngineAPI`, `Platform`, plus the PDFium shim (`CPDFium`) — this package's exclusive privilege.
