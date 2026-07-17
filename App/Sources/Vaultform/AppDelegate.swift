@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         let engine = PDFiumEngine()
-        let session = DocumentSession(lifecycle: engine, renderer: engine, outlineReader: engine)
+        let session = DocumentSession(lifecycle: engine, renderer: engine, outlineReader: engine, textEditor: engine)
         let viewModel = DocumentViewModel(session: session)
         self.viewModel = viewModel
         // P1-19: under system memory pressure the tile cache evicts down to

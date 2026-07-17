@@ -19,6 +19,7 @@ struct PageTileView: View {
     let page: PageIndex
     let zoomMode: ZoomMode
     let viewportSize: CGSize
+    var searchHighlights: [PDFRect] = []
     let onMetadata: (PageMetadata) -> Void
 
     @State private var metadata: PageMetadata?
@@ -47,6 +48,9 @@ struct PageTileView: View {
                     ForEach(tiles) { slot in
                         tileImage(slot, pageHeightPoints: metadata.size.height)
                     }
+                    ForEach(Array(searchHighlights.enumerated()), id: \.offset) { _, rect in
+                        highlightOverlay(rect, pageHeightPoints: metadata.size.height)
+                    }
                 }
                 .frame(width: metadata.size.width * scale, height: metadata.size.height * scale)
                 .rotationEffect(.degrees(Double(metadata.rotation.rawValue)))
@@ -70,6 +74,19 @@ struct PageTileView: View {
             .resizable()
             .frame(width: width, height: height)
             .position(x: slot.rect.origin.x * scale + width / 2, y: flippedY * scale + height / 2)
+    }
+
+    /// Same page-point → view-coordinate transform as `tileImage` (scale +
+    /// bottom-left → top-left Y flip), applied to a search hit's run box.
+    private func highlightOverlay(_ rect: PDFRect, pageHeightPoints: Double) -> some View {
+        let width = rect.width * scale
+        let height = rect.height * scale
+        let flippedY = pageHeightPoints - rect.origin.y - rect.height
+        return RoundedRectangle(cornerRadius: 2)
+            .fill(Color.yellow.opacity(0.35))
+            .frame(width: width, height: height)
+            .position(x: rect.origin.x * scale + width / 2, y: flippedY * scale + height / 2)
+            .allowsHitTesting(false)
     }
 
     private func load() async {

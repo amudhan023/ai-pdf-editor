@@ -31,6 +31,7 @@ public struct DocumentViewerView: View {
 
 private struct LoadedDocumentView: View {
     @ObservedObject var viewModel: DocumentViewModel
+    @StateObject private var search: SearchViewModel
     let pageCount: Int
 
     @State private var viewportSize: CGSize = .zero
@@ -38,6 +39,12 @@ private struct LoadedDocumentView: View {
     @State private var referenceMetadata: PageMetadata?
     @State private var showSidebar = true
     @GestureState private var pinchMagnification: Double = 1.0
+
+    init(viewModel: DocumentViewModel, pageCount: Int) {
+        self.viewModel = viewModel
+        self.pageCount = pageCount
+        _search = StateObject(wrappedValue: viewModel.makeSearchViewModel())
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -68,6 +75,7 @@ private struct LoadedDocumentView: View {
                                 page: PageIndex(index),
                                 zoomMode: viewModel.zoomMode,
                                 viewportSize: proxy.size,
+                                searchHighlights: search.highlightsByPage[PageIndex(index)] ?? [],
                                 onMetadata: { referenceMetadata = referenceMetadata ?? $0 }
                             )
                             .id(index)
@@ -115,6 +123,7 @@ private struct LoadedDocumentView: View {
             Button("100%") { viewModel.setZoomMode(.custom(1.0)) }
                 .keyboardShortcut("0", modifiers: .command)
             Spacer()
+            SearchBarView(search: search)
         }
         .padding(8)
     }
