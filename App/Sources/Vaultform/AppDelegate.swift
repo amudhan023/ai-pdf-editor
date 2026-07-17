@@ -25,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         let engine = PDFiumEngine()
-        let session = DocumentSession(lifecycle: engine, renderer: engine)
+        let session = DocumentSession(lifecycle: engine, renderer: engine, outlineReader: engine)
         viewModel = DocumentViewModel(session: session)
         super.init()
     }

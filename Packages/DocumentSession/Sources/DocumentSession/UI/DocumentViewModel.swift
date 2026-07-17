@@ -15,9 +15,26 @@ public final class DocumentViewModel: ObservableObject {
         case failed(DocumentSessionError)
     }
 
+    /// One sidebar-initiated jump. Wrapped in an identity so two consecutive
+    /// clicks on the same page still produce a distinct value — SwiftUI's
+    /// `onChange` would otherwise swallow the second navigation.
+    public struct NavigationTarget: Equatable {
+        public let id: UUID
+        public let page: PageIndex
+
+        init(page: PageIndex) {
+            self.id = UUID()
+            self.page = page
+        }
+    }
+
     @Published public private(set) var state: LoadState = .empty
     @Published public private(set) var zoomMode: ZoomMode = .fitWidth
     @Published public private(set) var restoredScrollPosition: ScrollPosition?
+    @Published public private(set) var outline: [OutlineNode] = []
+    @Published public private(set) var currentPage: PageIndex?
+    @Published public private(set) var navigationTarget: NavigationTarget?
+    @Published public var thumbnailSelection = ThumbnailSelectionModel()
 
     private let session: DocumentSession
     private let tileCache: TileCache
@@ -41,12 +58,17 @@ public final class DocumentViewModel: ObservableObject {
     public func open(url: URL) async {
         state = .loading
         await tileCache.invalidateAll()
+        outline = []
+        currentPage = nil
+        navigationTarget = nil
+        thumbnailSelection.clear()
         do {
             try await session.open(url: url)
             let count = try await session.pageCount()
             openURL = url
             restoredScrollPosition = scrollStore.position(for: url)
             state = .loaded(pageCount: count)
+            await loadOutline()
         } catch let error as DocumentSessionError {
             logger.error("open failed: \(error.userMessageKey, privacy: .public)")
             state = .failed(error)
@@ -68,6 +90,36 @@ public final class DocumentViewModel: ObservableObject {
     public func recordScrollPosition(_ position: ScrollPosition) {
         guard let openURL else { return }
         scrollStore.save(position, for: openURL)
+    }
+
+    /// The viewer reports each page whose view enters the lazily-rendered
+    /// range; the latest report is "current" for sidebar highlighting and
+    /// scroll-position persistence (page granularity, per P1-01).
+    public func pageDidBecomeVisible(_ page: PageIndex) {
+        currentPage = page
+        recordScrollPosition(ScrollPosition(page: page.value, verticalFraction: 0))
+    }
+
+    /// Sidebar-initiated jump (thumbnail click or outline entry). An outline
+    /// destination may carry a zoom target; it is applied before the scroll
+    /// so the landing geometry is final.
+    public func navigate(to page: PageIndex, zoom: Double? = nil) {
+        if let zoom {
+            setZoomMode(.custom(zoom))
+        }
+        navigationTarget = NavigationTarget(page: page)
+    }
+
+    /// A failed outline read degrades to "no outline" (sidebar tab shows its
+    /// empty state) rather than failing the whole open — the document itself
+    /// is still viewable.
+    private func loadOutline() async {
+        do {
+            outline = try await session.outline()
+        } catch {
+            logger.error("outline read failed; degrading to empty outline")
+            outline = []
+        }
     }
 
     /// Fetches one tile at `scale`, cache-first: a cache hit returns

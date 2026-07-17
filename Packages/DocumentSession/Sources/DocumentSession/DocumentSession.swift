@@ -34,11 +34,13 @@ public enum DocumentSessionError: Error, Sendable, Equatable {
 public actor DocumentSession {
     private let lifecycle: any DocumentLifecycle
     private let renderer: any PageRenderer
+    private let outlineReader: (any OutlineReader)?
     private var handle: DocumentHandle?
 
-    public init(lifecycle: any DocumentLifecycle, renderer: any PageRenderer) {
+    public init(lifecycle: any DocumentLifecycle, renderer: any PageRenderer, outlineReader: (any OutlineReader)? = nil) {
         self.lifecycle = lifecycle
         self.renderer = renderer
+        self.outlineReader = outlineReader
     }
 
     public var isOpen: Bool { handle != nil }
@@ -76,6 +78,14 @@ public actor DocumentSession {
 
     public func renderTile(_ request: TileRenderRequest) async throws -> RenderedTile {
         try await renderer.renderTile(of: openHandle(), request: request)
+    }
+
+    /// Empty when no `outlineReader` was wired (e.g. tests built against
+    /// `FakePDFEngine` alone) or the document has no outline — both are
+    /// normal, not errors.
+    public func outline() async throws -> [OutlineNode] {
+        guard let outlineReader else { return [] }
+        return try await outlineReader.outline(of: openHandle())
     }
 
     private func openHandle() throws -> DocumentHandle {
