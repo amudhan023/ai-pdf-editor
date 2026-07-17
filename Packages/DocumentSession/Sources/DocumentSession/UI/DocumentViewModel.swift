@@ -155,6 +155,15 @@ public final class DocumentViewModel: ObservableObject {
         return try? await session.metadata(page: page)
     }
 
+    /// Search wiring: the searcher streams pages through this view model's
+    /// session; navigation reuses the sidebar's `navigate(to:)` path so a
+    /// result jump and a thumbnail click behave identically.
+    public func makeSearchViewModel() -> SearchViewModel {
+        SearchViewModel(searcher: DocumentTextSearcher(session: session)) { [weak self] page in
+            self?.navigate(to: page)
+        }
+    }
+
     /// Called by the app's memory-pressure source (composition root owns
     /// the `DispatchSourceMemoryPressure`, since its handler fires off this
     /// actor's/object's isolation — see `TileCache.respondToMemoryPressure`).

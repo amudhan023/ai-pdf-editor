@@ -209,6 +209,50 @@ final class PDFiumEngineTests: XCTestCase {
         try await engine.close(document)
     }
 
+    /// P1-03: real extraction against the W-9 fixture. Pins content (the
+    /// form's title must be present), geometry sanity (every run's box is
+    /// non-degenerate, in page-point bounds, bottom-left origin), and
+    /// per-run metadata (positive font size, correct page index). The
+    /// manifest's `text_sha256` is a PDFKit-authored reference value —
+    /// engine-for-engine byte equality of extracted text is not a realistic
+    /// contract (segmentation/whitespace differ across extractors), so this
+    /// asserts known-content containment instead; see the PR discussion.
+    func testTextRunsExtractRealContentWithGeometry() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+
+        let runs = try await engine.textRuns(of: document, page: PageIndex(0))
+
+        XCTAssertGreaterThan(runs.count, 10, "the W-9 first page is text-dense")
+        let joined = runs.map(\.text).joined(separator: " ")
+        XCTAssertTrue(joined.contains("Request for Taxpayer"), "W-9 title must be extracted")
+
+        let metadata = try await engine.metadata(of: document, page: PageIndex(0))
+        for run in runs {
+            XCTAssertEqual(run.page, PageIndex(0))
+            XCTAssertGreaterThan(run.boundingBox.width, 0)
+            XCTAssertGreaterThan(run.boundingBox.height, 0)
+            XCTAssertGreaterThanOrEqual(run.boundingBox.origin.x, -1)
+            XCTAssertGreaterThanOrEqual(run.boundingBox.origin.y, -1)
+            XCTAssertLessThanOrEqual(run.boundingBox.origin.x + run.boundingBox.width, metadata.size.width + 1)
+            XCTAssertLessThanOrEqual(run.boundingBox.origin.y + run.boundingBox.height, metadata.size.height + 1)
+            XCTAssertGreaterThan(run.fontSize, 0)
+        }
+        try await engine.close(document)
+    }
+
+    func testReplaceTextFailsTypedNotSilently() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+        do {
+            try await engine.replaceText(of: document, run: UUID(), with: "x")
+            XCTFail("replaceText must not silently succeed - editing is not P1-03 scope")
+        } catch PDFEngineError.unsupportedFeature {
+            // expected
+        }
+        try await engine.close(document)
+    }
+
     func testMultipleDocumentsOpenIndependently() async throws {
         let engine = PDFiumEngine()
         let first = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
