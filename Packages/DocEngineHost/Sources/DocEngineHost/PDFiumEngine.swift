@@ -22,7 +22,7 @@ private let pdfiumLibraryInitialized: Bool = {
 /// scope, which was explicitly blocked on this task landing first. Calling
 /// it throws a typed `.unsupportedFeature` error rather than silently
 /// no-op'ing (CLAUDE.md SS15: never fake success).
-public actor PDFiumEngine: DocumentLifecycle, PageRenderer {
+public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader {
     private struct OpenDocument {
         let doc: OpaquePointer
         var pages: [Int: OpaquePointer] = [:]
@@ -114,6 +114,76 @@ public actor PDFiumEngine: DocumentLifecycle, PageRenderer {
 
         let pixelData = try extractRGBA(from: bitmap, width: pixelWidth, height: pixelHeight)
         return RenderedTile(request: request, pixelWidth: pixelWidth, pixelHeight: pixelHeight, pixelData: pixelData)
+    }
+
+    // MARK: - OutlineReader
+
+    /// Bounds recursion against malformed/cyclic bookmark trees (fpdf_doc.h's
+    /// own doc comment: "the caller is responsible for handling circular
+    /// bookmark references, as may arise from malformed documents") — a
+    /// per-branch `visited` set also breaks any cycle immediately, this cap
+    /// is a second, depth-based backstop.
+    private static let maxOutlineDepth = 64
+
+    public func outline(of document: DocumentHandle) async throws -> [OutlineNode] {
+        let entry = try requireDocument(document)
+        var visited = Set<OpaquePointer>()
+        return outlineChildren(of: nil, in: entry.doc, depth: 0, visited: &visited)
+    }
+
+    private func outlineChildren(
+        of parent: OpaquePointer?,
+        in doc: OpaquePointer,
+        depth: Int,
+        visited: inout Set<OpaquePointer>
+    ) -> [OutlineNode] {
+        guard depth < Self.maxOutlineDepth else { return [] }
+
+        var nodes: [OutlineNode] = []
+        var current = FPDFBookmark_GetFirstChild(doc, parent)
+        while let bookmark = current {
+            guard visited.insert(bookmark).inserted else { break }
+
+            var destinationPage: PageIndex?
+            var zoom: Double?
+            if let dest = FPDFBookmark_GetDest(doc, bookmark) {
+                let pageIndex = FPDFDest_GetDestPageIndex(doc, dest)
+                if pageIndex >= 0 { destinationPage = PageIndex(Int(pageIndex)) }
+
+                var hasX: FPDF_BOOL = 0, hasY: FPDF_BOOL = 0, hasZoom: FPDF_BOOL = 0
+                var x: FS_FLOAT = 0, y: FS_FLOAT = 0, z: FS_FLOAT = 0
+                if FPDFDest_GetLocationInPage(dest, &hasX, &hasY, &hasZoom, &x, &y, &z) != 0, hasZoom != 0 {
+                    zoom = Double(z)
+                }
+            }
+
+            let children = outlineChildren(of: bookmark, in: doc, depth: depth + 1, visited: &visited)
+            nodes.append(OutlineNode(
+                title: bookmarkTitle(bookmark),
+                destinationPage: destinationPage,
+                zoom: zoom,
+                children: children
+            ))
+            current = FPDFBookmark_GetNextSibling(doc, bookmark)
+        }
+        return nodes
+    }
+
+    /// PDFium returns bookmark titles as UTF-16LE, NUL-terminated
+    /// (`fpdf_doc.h`'s `FPDFBookmark_GetTitle` doc comment) — decode here
+    /// rather than push a wide-string type up through the protocol.
+    private func bookmarkTitle(_ bookmark: OpaquePointer) -> String {
+        let byteLength = FPDFBookmark_GetTitle(bookmark, nil, 0)
+        guard byteLength > 0 else { return "" }
+
+        var units = [UInt16](repeating: 0, count: Int(byteLength) / 2)
+        _ = units.withUnsafeMutableBytes { raw in
+            FPDFBookmark_GetTitle(bookmark, raw.baseAddress, byteLength)
+        }
+        if let nul = units.firstIndex(of: 0) {
+            units.removeSubrange(nul...)
+        }
+        return String(decoding: units, as: UTF16.self)
     }
 
     // MARK: - Helpers

@@ -48,6 +48,21 @@ final class FakePDFEngineBehaviorTests: XCTestCase {
         XCTAssertEqual(runs.first?.text, "new")
     }
 
+    func testOutlineSeedAndReadRoundTripsNestedTree() async throws {
+        let engine = FakePDFEngine()
+        let document = await engine.seedDocument(pageCount: 5)
+        let child = OutlineNode(title: "Section 1.1", destinationPage: PageIndex(2), zoom: 1.5)
+        let root = OutlineNode(title: "Section 1", destinationPage: PageIndex(1), children: [child])
+        try await engine.seedOutline([root], for: document)
+
+        let outline = try await engine.outline(of: document)
+        XCTAssertEqual(outline.count, 1)
+        XCTAssertEqual(outline.first?.title, "Section 1")
+        XCTAssertEqual(outline.first?.children.first?.title, "Section 1.1")
+        XCTAssertEqual(outline.first?.children.first?.destinationPage, PageIndex(2))
+        XCTAssertEqual(outline.first?.children.first?.zoom, 1.5)
+    }
+
     func testDocumentLifecycle() async throws {
         let engine = FakePDFEngine()
         let document = try await engine.open(url: URL(fileURLWithPath: "/tmp/does-not-matter.pdf"))
