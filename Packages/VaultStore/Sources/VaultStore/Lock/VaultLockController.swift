@@ -23,7 +23,15 @@ enum VaultLockPhase: Sendable, Equatable {
 /// all four immediately — nothing here survives a lock/idle-timeout
 /// (ARCHITECTURE.md §6.2).
 public actor VaultLockController {
+    /// Suspends for the idle-timeout interval and must cooperate with task
+    /// cancellation (throw when the surrounding task is cancelled), like
+    /// `Task.sleep` does. Injectable so the idle-timeout state machine is
+    /// testable without wall-clock races (P1-20 — the CI flake this seam
+    /// removes had ~50ms of real scheduling margin).
+    public typealias IdleSleeper = @Sendable (TimeInterval) async throws -> Void
+
     private let masterKeyManager: MasterKeyManager
+    private let idleSleeper: IdleSleeper
     private var unlocked: UnlockedKeys?
     private var phase: VaultLockPhase = .locked
     private var lastAuthenticatedAt: Date?
@@ -39,8 +47,12 @@ public actor VaultLockController {
         let backupKey: LockedBytes
     }
 
-    public init(masterKeyManager: MasterKeyManager) {
+    public init(
+        masterKeyManager: MasterKeyManager,
+        idleSleeper: @escaping IdleSleeper = { try await Task.sleep(nanoseconds: UInt64(max($0, 0) * 1_000_000_000)) }
+    ) {
         self.masterKeyManager = masterKeyManager
+        self.idleSleeper = idleSleeper
         (events, eventContinuation) = AsyncStream.makeStream(of: VaultLockEvent.self)
     }
 
@@ -168,8 +180,8 @@ public actor VaultLockController {
         idleMonitorTask?.cancel()
         idleMonitorTask = nil
         guard phase == .unlocked, let idleTimeout else { return }
-        idleMonitorTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(max(idleTimeout, 0) * 1_000_000_000))
+        idleMonitorTask = Task { [weak self, idleSleeper] in
+            try? await idleSleeper(idleTimeout)
             guard !Task.isCancelled, let self else { return }
             await self.lockDueToIdleTimeout()
         }

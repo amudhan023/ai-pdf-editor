@@ -209,6 +209,11 @@ final class VaultLockControllerTests: XCTestCase {
         }
     }
 
+    /// Deterministic via the injected `IdleSleeper` (P1-20): the controller's
+    /// idle deadline only "fires" when this test releases the gated sleep, so
+    /// no wall-clock margin exists to race against. The previous version used
+    /// real `Task.sleep`s with ~50ms of scheduling margin and flaked on
+    /// loaded CI runners.
     func testIdleTimeoutAutoLocksAndActivityDefersIt() async throws {
         let keychain = KeychainStore(service: "com.vaultform.vault.tests.\(#function).\(UUID().uuidString)")
         let manager = MasterKeyManager(
@@ -216,20 +221,63 @@ final class VaultLockControllerTests: XCTestCase {
             masterKeyAccount: "masterkey.se-wrapped", recoveryWrappedAccount: "masterkey.recovery-wrapped"
         )
         _ = try await manager.provision()
-        let controller = VaultLockController(masterKeyManager: manager)
+        let sleeperGate = SleeperGate()
+        let controller = VaultLockController(masterKeyManager: manager) { _ in
+            try await sleeperGate.sleep()
+        }
 
         try await controller.unlock()
         await controller.setIdleTimeout(0.2)
+        try await sleeperGate.waitForSleepCount(1) // setIdleTimeout armed the monitor
 
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Activity must cancel the armed deadline and arm a fresh one.
         await controller.noteActivity()
-        try await Task.sleep(nanoseconds: 150_000_000)
+        try await sleeperGate.waitForSleepCount(2)
         let phaseAfterActivity = await controller.lockPhase
         XCTAssertEqual(phaseAfterActivity, .unlocked, "activity inside the window must defer the auto-lock")
 
-        try await Task.sleep(nanoseconds: 300_000_000)
+        // Release the (only) live deadline: the fresh monitor's sleep returns
+        // as if the timeout elapsed; the cancelled ones were resumed by
+        // cancellation and must not lock.
+        await sleeperGate.releaseLatest()
+        for _ in 0..<200 {
+            if await controller.lockPhase == .locked { break }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
         let phaseAfterIdle = await controller.lockPhase
         XCTAssertEqual(phaseAfterIdle, .locked, "idle past the timeout with no activity must auto-lock")
+    }
+
+    /// Boundary case the wall-clock version couldn't express: activity that
+    /// lands after the deadline has already fired must not "revive" the
+    /// vault — the lock stands, and the late activity arms nothing (the
+    /// monitor only runs while unlocked).
+    func testActivityAfterTheDeadlineFiredDoesNotUnlock() async throws {
+        let keychain = KeychainStore(service: "com.vaultform.vault.tests.\(#function).\(UUID().uuidString)")
+        let manager = MasterKeyManager(
+            keychain: keychain, seBox: MockKeyWrappingProvider(),
+            masterKeyAccount: "masterkey.se-wrapped", recoveryWrappedAccount: "masterkey.recovery-wrapped"
+        )
+        _ = try await manager.provision()
+        let sleeperGate = SleeperGate()
+        let controller = VaultLockController(masterKeyManager: manager) { _ in
+            try await sleeperGate.sleep()
+        }
+
+        try await controller.unlock()
+        await controller.setIdleTimeout(0.2)
+        try await sleeperGate.waitForSleepCount(1)
+
+        await sleeperGate.releaseLatest()
+        for _ in 0..<200 {
+            if await controller.lockPhase == .locked { break }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        await controller.noteActivity()
+        let phase = await controller.lockPhase
+        XCTAssertEqual(phase, .locked, "late activity must not revive a vault the deadline already locked")
+        let sleeps = await sleeperGate.sleepCount
+        XCTAssertEqual(sleeps, 1, "noteActivity while locked must not arm a new idle monitor")
     }
 
     func testRecoveryCodeUnlocksAfterSimulatedBiometryLoss() async throws {
@@ -293,5 +341,54 @@ final class VaultLockControllerTests: XCTestCase {
             let decision = PolicyRules.decide(request, now: now, authFreshnessWindow: window)
             XCTAssertEqual(decision == .requireReauth, expectReauth, "window=\(window) elapsed=\(elapsed)")
         }
+    }
+}
+
+/// Test-local gate standing in for `VaultLockController.IdleSleeper`: each
+/// `sleep()` suspends until the test releases it (deadline "fires") or the
+/// surrounding monitor task is cancelled (activity deferred it) — no wall
+/// clock anywhere, which is the whole point (P1-20).
+private actor SleeperGate {
+    struct TimedOutWaitingForSleep: Error {}
+
+    private var continuations: [Int: CheckedContinuation<Void, Error>] = [:]
+    private var cancelledIDs: Set<Int> = []
+    private(set) var sleepCount = 0
+
+    func sleep() async throws {
+        let id = sleepCount
+        sleepCount += 1
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                if cancelledIDs.contains(id) {
+                    continuation.resume(throwing: CancellationError())
+                } else {
+                    continuations[id] = continuation
+                }
+            }
+        } onCancel: {
+            Task { await self.cancel(id: id) }
+        }
+    }
+
+    private func cancel(id: Int) {
+        cancelledIDs.insert(id)
+        continuations.removeValue(forKey: id)?.resume(throwing: CancellationError())
+    }
+
+    /// Fires the newest armed deadline, as if its interval elapsed.
+    func releaseLatest() {
+        guard let latest = continuations.keys.max() else { return }
+        continuations.removeValue(forKey: latest)?.resume()
+    }
+
+    /// The monitor arms asynchronously after `setIdleTimeout`/`noteActivity`
+    /// return; this waits (bounded) for the Nth `sleep()` to be reached.
+    func waitForSleepCount(_ count: Int) async throws {
+        for _ in 0..<400 {
+            if sleepCount >= count { return }
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        throw TimedOutWaitingForSleep()
     }
 }

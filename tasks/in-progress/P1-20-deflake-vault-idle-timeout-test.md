@@ -2,6 +2,8 @@
 
 **Epic:** E9 · **Primary package:** `Packages/VaultStore` · **Complexity:** S · **Priority:** Medium
 
+**Owner:** claude-agent · **Branch:** task/P1-20-deflake-vault-idle-timeout-test · **Claimed:** 5fb88d3
+
 ## Goal
 `VaultLockControllerTests.testIdleTimeoutAutoLocksAndActivityDefersIt` passes deterministically on loaded CI runners, without weakening what it verifies (activity defers auto-lock; idle past timeout locks).
 
@@ -31,3 +33,11 @@ Observed failing on CI (run 29550572398, 2026-07-17, on an unrelated P1-02 PR): 
 
 ## Documentation Updates
 - `Packages/VaultStore/CLAUDE.md` gotcha note if a clock-injection seam is added.
+
+## Journal
+
+- Took the task's preferred fix: `VaultLockController.IdleSleeper` — an injectable `@Sendable (TimeInterval) async throws -> Void` defaulting to `Task.sleep`, used by `restartIdleMonitor`. Production behavior unchanged (default parameter; same cancellation semantics).
+- Rewrote `testIdleTimeoutAutoLocksAndActivityDefersIt` against a test-local `SleeperGate` actor: each armed deadline suspends until the test releases it or cancellation (from `noteActivity`) resumes it — zero wall-clock dependence in the deferral assertion.
+- Added the boundary test the wall-clock version couldn't express: `testActivityAfterTheDeadlineFiredDoesNotUnlock` (late activity must not revive a locked vault or arm a new monitor).
+- Acceptance evidence: both tests 50/50 consecutive passes (`swift test --filter ...` loop); `Scripts/verify.sh VaultStore` green (all 46 tests).
+- `VaultStore/CLAUDE.md` gotcha updated: new idle-timing tests should gate the sleeper, not race real sleeps.
