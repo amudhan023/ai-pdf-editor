@@ -12,6 +12,6 @@ Thin executables over `Packages/*` — each is the process boundary for one trus
 | Service | Trust posture | Status |
 |---|---|---|
 | [doc-engine-service.md](doc-engine-service.md) | Hostile input (parses arbitrary PDFs) | Skeleton — self-check `main.swift` only |
-| [inference-service.md](inference-service.md) | Semi-trusted (processes extracted content) | Not scaffolded — README only |
-| [vault-service.md](vault-service.md) | Most privileged (sole owner of vault DB/keys) | Not scaffolded — README only |
+| [inference-service.md](inference-service.md) | Semi-trusted (processes extracted content) | Skeleton — self-check `main.swift` only (P1-12); real logic in `InferenceHost` |
+| [vault-service.md](vault-service.md) | Most privileged (sole owner of vault DB/keys) | Skeleton — self-check `main.swift` only (P1-08); real logic in `VaultStore` |
 | [xpc-transport.md](xpc-transport.md) | N/A — the wire protocol all three use | Implemented (`Platform` package) |

@@ -38,4 +38,4 @@ Foundation, `VaultAPI`, CryptoKit.
 - Rules are pure functions of their arguments — no I/O, no randomness, no hidden state.
 - Minting always re-derives the decision; never trusts a passed-in `.grant`.
 
-Consumed by (currently stubs): `AutofillSession`, `IngestionSession`, `AutofillEngine`, `VaultManagerUI`. See [../architecture/security-model.md](../architecture/security-model.md) for how this fits the broader threat model.
+Consumed today by `VaultStore` — its `TicketVerifyingVaultClient` runs `TicketVerifier` at the store boundary ([../engines/vault-store.md](../engines/vault-store.md)). Future consumers `AutofillSession`, `IngestionSession`, `VaultManagerUI` are still stubs. See [../architecture/security-model.md](../architecture/security-model.md) for how this fits the broader threat model.

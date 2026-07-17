@@ -3,12 +3,12 @@ type: architecture
 title: Storage Layout
 description: The on-disk container layout and the conceptual vault schema shape — what's stored where, and why relational over document-store.
 tags: [architecture, storage, vault-schema, sqlcipher, grdb]
-implementation_status: planned
+implementation_status: partial
 ---
 
 # Storage Layout
 
-Design from `docs/ARCHITECTURE.md` §8. Not yet implemented — depends on `VaultStore`, `FormKnowledge`, and `AuditLog`, all still stub packages.
+Design from `docs/ARCHITECTURE.md` §8. Partially implemented: the `Vault/` subtree (SQLCipher `vault.db`, encrypted attachments, encrypted backups) exists in `VaultStore` and the audit log in `AuditLog`; `forms.db` (`FormKnowledge`, still a stub) and the session-keyed encrypted `Scratch/` container are not built. `DocumentBackups/` semantics are covered by `DocumentSession`'s versioned-backup save path.
 
 ## Container layout
 
@@ -37,7 +37,7 @@ User documents themselves stay wherever the user keeps them (security-scoped boo
 - `provenance` (field_id → source: manual | document_id + page + region + extraction confidence)
 - `documents` (ingested attachment metadata; blob key reference)
 
-This conceptual schema is already reflected in `VaultAPI`'s types today, even though no SQLCipher-backed implementation exists yet: `ProfileField` (path/value/sensitivity/aliases/verifiedAt/provenance), `HistoryEntry` (category/date-range/fields), `Provenance` (`.manual` or `.document(...)`), `RelationshipEdge`. The canonical catalog of concrete field paths lives in `docs/specs/vault-schema.md`, not in code — see [packages/vault-api.md](../packages/vault-api.md).
+This conceptual schema is reflected in `VaultAPI`'s types and implemented by `VaultStore`'s GRDB migrations (`Schema/VaultMigrations.swift`, `Schema/Records.swift`): `ProfileField` (path/value/sensitivity/aliases/verifiedAt/provenance), `HistoryEntry` (category/date-range/fields), `Provenance` (`.manual` or `.document(...)`), `RelationshipEdge`. The canonical catalog of concrete field paths lives in `docs/specs/vault-schema.md`, not in code — see [packages/vault-api.md](../packages/vault-api.md).
 
 **Why relational, not a document store:** conflict detection, history queries, per-field sensitivity, and provenance joins are natural SQL; the schema is stable and small (thousands of rows, not millions). Full-DB encryption via SQLCipher plus column-level ciphertext for values gives defense in depth.
 

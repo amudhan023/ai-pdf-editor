@@ -22,4 +22,4 @@ Consulted by `AutofillEngine`'s `SemanticMatcher` *before* any ML inference runs
 
 Foundation, `PDFEngineAPI`, `VaultAPI`.
 
-Consumed by (once built): `AutofillEngine` — itself currently a stub.
+Consumed by (once built): `AutofillEngine` — whose alias-matcher rung exists today but doesn't consult `FormKnowledge` yet ([../engines/autofill-engine.md](../engines/autofill-engine.md)).

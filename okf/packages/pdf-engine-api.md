@@ -37,4 +37,4 @@ Foundation only (enforced by `Scripts/import-allowlist.txt`, checked by `Scripts
 
 `RenderedTile.pixelData` being `Data` here (vs. `IOSurface` in the real transport) is intentional simplicity for testing against `FakePDFEngine` — don't read it as the final wire shape.
 
-Consumed by: `DocEngineHost` (implements it against real PDFium), `DocumentSession`, `AutofillEngine`, `IngestionPipeline`, `FormKnowledge` (all currently stubs — see [../engines/index.md](../engines/index.md), [../sessions/index.md](../sessions/index.md)).
+Consumed by: `DocEngineHost` (implements `DocumentLifecycle` + `PageRenderer` against real PDFium — see [../engines/doc-engine-host.md](../engines/doc-engine-host.md)), `DocumentSession` (drives open/render/atomic-save for the viewer — see [../sessions/document-session.md](../sessions/document-session.md)), `AutofillEngine`; `IngestionPipeline` and `FormKnowledge` are still stubs.

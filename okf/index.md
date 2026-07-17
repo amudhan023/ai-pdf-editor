@@ -9,7 +9,7 @@ tags: [overview, entry-point, vaultform]
 
 Vaultform is a native macOS PDF editor with a privacy-first, local-only AI Autofill Assistant. Personal data lives in an encrypted local vault; PDF forms (including scanned/flat ones) are filled from it with full user review and zero network dependency. Full product framing lives in `docs/PRD.md`; full architecture in `docs/ARCHITECTURE.md`; the fifteen immutable rules in `docs/CONSTITUTION.md`.
 
-This bundle reflects repo state as of commit `efb6f4f` (2026-07-04). **This is an early-stage codebase**: a handful of packages have real, substantive implementations; most are still single-file scaffolds waiting on their task to be picked up. Every concept file below carries an `implementation_status` in its frontmatter (`implemented` / `partial` / `scaffolded` / `planned`) — trust that field over any prose describing "what a package does," since prose often describes the *design intent* (from ARCHITECTURE.md) rather than code that exists yet.
+This bundle reflects repo state as of commit `55b62d3` (2026-07-16). **This is a mid-build codebase**: the vault stack, audit log, inference plumbing, PDFium render pipeline, and document viewer now have real implementations, while the autofill/ingestion sessions and several other packages remain single-file scaffolds waiting on their task to be picked up. Every concept file below carries an `implementation_status` in its frontmatter (`implemented` / `partial` / `scaffolded` / `planned`) — trust that field over any prose describing "what a package does," since prose often describes the *design intent* (from ARCHITECTURE.md) rather than code that exists yet.
 
 ## How to use this bundle
 
@@ -38,7 +38,7 @@ This bundle is a map, not a replacement for the territory. For anything load-bea
 
 ## Implementation snapshot (as of this bundle's writing)
 
-**Substantively implemented:** `PDFEngineAPI`, `VaultAPI`, `PolicyKit`, `Platform`'s XPC transport layer.
-**Skeleton/self-check only:** `Services/DocEngineService`.
-**4-line placeholder stubs (no real logic yet):** `AutofillEngine`, `IngestionPipeline`, `DocumentSession`, `AutofillSession`, `IngestionSession`, `VaultManagerUI`, `PrivacyDashboard`, `VaultStore`, `DocEngineHost`, `InferenceHost`, `FormKnowledge`, `AuditLog`, `InferenceAPI`.
-**Not yet scaffolded at all:** `App/` (composition root — no Swift files exist), `Services/InferenceService`, `Services/VaultService` (README only).
+**Substantively implemented:** `PDFEngineAPI`, `VaultAPI`, `InferenceAPI` (all three frozen-seam contract packages), `PolicyKit`, `AuditLog`, `VaultStore` (SQLCipher store, key hierarchy, lock/auth, crypto-shred), `Platform` (XPC transport + `LocalAuthenticator` + `DomainEventBus`).
+**Partial:** `DocEngineHost` (PDFium document lifecycle + tiled rendering; no text editing/forms/save yet), `DocumentSession` (atomic save path + continuous-scroll viewer with tiling/zoom; no undo stack yet), `InferenceHost` (model registry, router, memory governor, Vision OCR, embeddings; Core ML/FoundationModels adapters are placeholders), `AutofillEngine` (alias-dictionary matcher rung only), `PrivacyDashboard` (view-models only, no views), `App/` (minimal shell viewer app wiring `PDFiumEngine` in-process — the real `DocEngine.xpc` process split is still pending).
+**Skeleton/self-check only:** all three `Services/*` executables (`DocEngineService`, `InferenceService`, `VaultService`) — ping self-checks proving transport linkage, not real service wiring.
+**4-line placeholder stubs (no real logic yet):** `AutofillSession`, `IngestionSession`, `IngestionPipeline`, `FormKnowledge`, `VaultManagerUI`.

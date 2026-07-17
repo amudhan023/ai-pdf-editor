@@ -7,7 +7,7 @@ tags: [workflows, sequence, overview]
 
 # Workflows
 
-Cross-component sequence flows from `docs/ARCHITECTURE.md` §5, spanning Sessions → Engines → Services. **Both flows are design intent** — the sessions and engines they name (`IngestionSession`/`AutofillSession`, `IngestionPipeline`/`AutofillEngine`) are all currently stub packages (see [../sessions/index.md](../sessions/index.md), [../engines/index.md](../engines/index.md)); nothing below is executable yet.
+Cross-component sequence flows from `docs/ARCHITECTURE.md` §5, spanning Sessions → Engines → Services. **Both flows remain design intent end-to-end** — the coordinating sessions (`IngestionSession`/`AutofillSession`) and `IngestionPipeline` are still stub packages, though several building blocks now exist: the alias-matcher rung (`AutofillEngine`), OCR and embed endpoints (`InferenceHost`), and ticketed vault reads/writes with `compareRead` (`VaultStore`). See [../sessions/index.md](../sessions/index.md), [../engines/index.md](../engines/index.md).
 
 | Flow | Direction | Only-write-path invariant |
 |---|---|---|
