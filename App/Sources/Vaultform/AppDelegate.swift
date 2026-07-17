@@ -22,11 +22,20 @@ import DocumentSession
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
     let viewModel: DocumentViewModel
+    private let memoryPressureMonitor: MemoryPressureMonitor
 
     override init() {
         let engine = PDFiumEngine()
         let session = DocumentSession(lifecycle: engine, renderer: engine, outlineReader: engine)
-        viewModel = DocumentViewModel(session: session)
+        let viewModel = DocumentViewModel(session: session)
+        self.viewModel = viewModel
+        // P1-19: under system memory pressure the tile cache evicts down to
+        // its retain fraction instead of holding the full byte budget.
+        memoryPressureMonitor = MemoryPressureMonitor {
+            Task { @MainActor in
+                await viewModel.handleMemoryPressure()
+            }
+        }
         super.init()
     }
 
