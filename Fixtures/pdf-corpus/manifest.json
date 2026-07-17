@@ -56,6 +56,40 @@
       "page_count": 4,
       "text_sha256": "b64117924662dff04b8a2eeeb9996b996e01baf5351da9f92d1200a3705df06b",
       "text_hash_method": "sha256 of PDFKit PDFPage.string per page, newline-joined, authoring-time reference value"
+    },
+    {
+      "id": "synthetic-outlined-nested",
+      "file": "synthetic/outlined-nested.pdf",
+      "source_url": "generated in-repo by synthetic/generate_outlined.py (deterministic, no download)",
+      "license_note": "Fully synthetic, authored for this repo - no licensing restriction, no PII (Constitution Art. 15).",
+      "file_sha256": "907772b1dadc5097a189a78393595a42f433e5c593099fcb1088b16668ed3a3f",
+      "page_count": 3,
+      "text_sha256": "7428b8dac519dc632ee0a34b7442f63008b8184d2d382eec3f76696f2f2eed81",
+      "text_hash_method": "sha256 of PDFKit PDFPage.string per page, newline-joined, authoring-time reference value",
+      "outline": {
+        "note": "P1-02/ADR-013 OutlineReader expectations - DocEngineHostTests pins these (nested bookmark, XYZ zoom target, structural heading with no destination).",
+        "roots": [
+          {
+            "title": "Chapter 1",
+            "destination_page": 0,
+            "zoom": null,
+            "children": [
+              {
+                "title": "Section 1.1",
+                "destination_page": 2,
+                "zoom": 1.5,
+                "children": []
+              }
+            ]
+          },
+          {
+            "title": "Unlinked Heading",
+            "destination_page": null,
+            "zoom": null,
+            "children": []
+          }
+        ]
+      }
     }
   ],
   "malformed_rows": [
