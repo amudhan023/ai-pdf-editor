@@ -2,6 +2,8 @@
 
 **Epic:** E3 · **Primary package:** `App/` · **Complexity:** M · **Priority:** Medium
 
+**Owner:** claude · **Branch:** task/P1-07-tabs-windows-shortcuts · **Claimed:** ad9e6f1bac71c1cdfe4cda559d5f4a26bf642ba0
+
 ## Goal
 Native document-app shell: window tabs, multiple windows, complete menu bar with keyboard shortcuts, recents, and default-PDF-app registration polish.
 
