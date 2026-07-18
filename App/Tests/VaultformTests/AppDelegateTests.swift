@@ -1,14 +1,16 @@
 import XCTest
 @testable import Vaultform
 
-/// Composition-root smoke test: wiring `AppDelegate.init` (concrete
-/// `PDFiumEngine` -> `DocumentSession` -> `DocumentViewModel`) must not
-/// throw or crash before any document is opened — the acceptance criterion
-/// this covers is "app stays alive" for the no-document-yet state.
+/// Composition-root smoke test. `AppDelegate.init` no longer wires a single
+/// window (P1-07 made the app multi-window) — `NSApplicationDelegate`
+/// lifecycle methods that create windows need a running `NSApplication`,
+/// which XCTest doesn't provide, so this only pins what's true before
+/// `applicationDidFinishLaunching` runs: construction doesn't throw/crash
+/// and no window exists yet.
 @MainActor
 final class AppDelegateTests: XCTestCase {
-    func testInitWiresADocumentViewModelInTheEmptyState() {
+    func testInitDoesNotCreateAnyWindow() {
         let delegate = AppDelegate()
-        XCTAssertEqual(delegate.viewModel.state, .empty)
+        XCTAssertTrue(delegate.windowControllers.isEmpty)
     }
 }
