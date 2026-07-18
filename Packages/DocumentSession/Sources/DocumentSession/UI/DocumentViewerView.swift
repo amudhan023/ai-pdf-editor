@@ -32,6 +32,7 @@ public struct DocumentViewerView: View {
 private struct LoadedDocumentView: View {
     @ObservedObject var viewModel: DocumentViewModel
     @StateObject private var search: SearchViewModel
+    @StateObject private var markup: MarkupToolbarViewModel
     let pageCount: Int
 
     @State private var viewportSize: CGSize = .zero
@@ -44,11 +45,15 @@ private struct LoadedDocumentView: View {
         self.viewModel = viewModel
         self.pageCount = pageCount
         _search = StateObject(wrappedValue: viewModel.makeSearchViewModel())
+        _markup = StateObject(wrappedValue: viewModel.makeMarkupToolbarViewModel())
     }
+
+    private var markupPage: PageIndex { viewModel.currentPage ?? PageIndex(0) }
 
     var body: some View {
         VStack(spacing: 0) {
             zoomToolbar
+            markupToolbar
             HSplitView {
                 if showSidebar {
                     DocumentSidebarView(viewModel: viewModel, pageCount: pageCount)
@@ -64,6 +69,26 @@ private struct LoadedDocumentView: View {
         )
     }
 
+    /// "Mark Selection" turns the active search hit's run into a markup
+    /// annotation — the documented scope cut for creation (see
+    /// `MarkupToolbarViewModel`'s doc comment): there's no drag-to-select
+    /// gesture in the viewer yet, so a pre-extracted `TextRun` (here, the
+    /// current search result's run) is the caller-supplied target.
+    private var markupToolbar: some View {
+        HStack(spacing: 12) {
+            MarkupToolbarView(markup: markup, page: markupPage)
+            Button("Mark Selection") {
+                guard let result = search.currentResult else { return }
+                let run = TextRun(id: result.runID, page: result.page, text: result.snippet, boundingBox: result.boundingBox, fontSize: 0)
+                Task { await markup.createMarkup(on: run) }
+            }
+            .disabled(search.currentResult == nil)
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
+    }
+
     private var pageScroller: some View {
         GeometryReader { proxy in
             ScrollViewReader { scrollProxy in
@@ -76,8 +101,12 @@ private struct LoadedDocumentView: View {
                                 zoomMode: viewModel.zoomMode,
                                 viewportSize: proxy.size,
                                 searchHighlights: search.highlightsByPage[PageIndex(index)] ?? [],
+                                annotations: markup.annotationsByPage[PageIndex(index)] ?? [],
+                                selectedAnnotationID: markup.selectedAnnotationID,
+                                onSelectAnnotation: { markup.selectAnnotation($0) },
                                 onMetadata: { referenceMetadata = referenceMetadata ?? $0 }
                             )
+                            .task(id: index) { await markup.loadAnnotations(page: PageIndex(index)) }
                             .id(index)
                             .onAppear { viewModel.pageDidBecomeVisible(PageIndex(index)) }
                         }

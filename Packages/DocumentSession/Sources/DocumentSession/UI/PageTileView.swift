@@ -20,6 +20,9 @@ struct PageTileView: View {
     let zoomMode: ZoomMode
     let viewportSize: CGSize
     var searchHighlights: [PDFRect] = []
+    var annotations: [Annotation] = []
+    var selectedAnnotationID: Annotation.ID?
+    var onSelectAnnotation: (Annotation.ID) -> Void = { _ in }
     let onMetadata: (PageMetadata) -> Void
 
     @State private var metadata: PageMetadata?
@@ -50,6 +53,9 @@ struct PageTileView: View {
                     }
                     ForEach(Array(searchHighlights.enumerated()), id: \.offset) { _, rect in
                         highlightOverlay(rect, pageHeightPoints: metadata.size.height)
+                    }
+                    ForEach(annotations) { annotation in
+                        annotationOverlay(annotation, pageHeightPoints: metadata.size.height)
                     }
                 }
                 .frame(width: metadata.size.width * scale, height: metadata.size.height * scale)
@@ -87,6 +93,28 @@ struct PageTileView: View {
             .frame(width: width, height: height)
             .position(x: rect.origin.x * scale + width / 2, y: flippedY * scale + height / 2)
             .allowsHitTesting(false)
+    }
+
+    /// Click-to-select existing markup (P1-04): tapping a rendered
+    /// annotation's box selects it in the toolbar, enabling delete — the
+    /// documented substitute for a drag-select/resize-handle editor.
+    private func annotationOverlay(_ annotation: Annotation, pageHeightPoints: Double) -> some View {
+        let rect = annotation.boundingBox
+        let width = rect.width * scale
+        let height = rect.height * scale
+        let flippedY = pageHeightPoints - rect.origin.y - rect.height
+        let color = annotation.color.map { Color(red: $0.red, green: $0.green, blue: $0.blue) } ?? .yellow
+        let isSelected = annotation.id == selectedAnnotationID
+        return RoundedRectangle(cornerRadius: 2)
+            .fill(color.opacity(annotation.opacity * 0.35))
+            .overlay(
+                RoundedRectangle(cornerRadius: 2)
+                    .strokeBorder(color, lineWidth: isSelected ? 2 : 0)
+            )
+            .frame(width: width, height: height)
+            .position(x: rect.origin.x * scale + width / 2, y: flippedY * scale + height / 2)
+            .contentShape(Rectangle())
+            .onTapGesture { onSelectAnnotation(annotation.id) }
     }
 
     private func load() async {

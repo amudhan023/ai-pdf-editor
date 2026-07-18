@@ -10,17 +10,19 @@ implementation_status: partial
 
 **Purpose:** the PDFium adapter (and eventually XPC client) implementing `PDFEngineAPI` ([../packages/pdf-engine-api.md](../packages/pdf-engine-api.md)). Explicitly **the only package in the repo permitted to link the PDF engine**. Intended to run hostile-input parsing inside `DocEngine.xpc` ([../services/doc-engine-service.md](../services/doc-engine-service.md)); today it is wired in-process by `App/` because real `.xpc` bundle embedding needs an Xcode app target (documented constraint, see that service's file).
 
-## What's actually implemented (P0-03, P0-06, P1-02)
+## What's actually implemented (P0-03, P0-06, P1-02, P1-03, P1-04)
 
-- **`PDFiumEngine`** — an `actor` (PDFium is not thread-safe; actor isolation serializes all calls) implementing `DocumentLifecycle`, `PageRenderer`, and `OutlineReader` (ADR-013). Per-document state (`FPDF_DOCUMENT` + lazy `FPDF_PAGE` cache) keyed by `DocumentHandle`.
+- **`PDFiumEngine`** — an `actor` (PDFium is not thread-safe; actor isolation serializes all calls) implementing `DocumentLifecycle`, `PageRenderer`, `OutlineReader` (ADR-013), `TextEditor` (P1-03, run-granularity extraction; `replaceText` still typed-unsupported), and `AnnotationStore` (P1-04, ADR-014). Per-document state (`FPDF_DOCUMENT` + lazy `FPDF_PAGE` cache) keyed by `DocumentHandle`.
   - `renderTile` renders only the requested tile via `FPDF_RenderPageBitmapWithMatrix` (never full-page rasterization; NFR-P5), converting BGRx → RGBA8 `Data`.
   - `outline(of:)` walks `FPDFBookmark_*` with a visited-set **and** a 64-depth cap — malformed PDFs can have cyclic bookmark trees; bounded traversal, never a crash.
-  - `save` conforms but throws typed `.unsupportedFeature` — engine-side save is open scope (DocumentSession's `AtomicSave` handles file-level atomicity; content-mutating saves need engine work).
+  - `textRuns(of:page:)` extracts one `TextRun` per PDFium rect-segmentation box (`FPDFText_CountRects`), reading order; `replaceText` is typed-unsupported (future scope).
+  - `annotations(of:page:)`/`add`/`update`/`remove` (P1-04) — real create/read/update/delete via `fpdf_annot.h`, quad points included; identity keyed by the PDF spec's `/NM` string (not a side table), stable across page reorders. `update` is remove-then-recreate (no in-place PDFium geometry rewrite call) but preserves `/NM`. Quad corner order follows the de facto Acrobat "Z" convention, not ISO 32000-1's literal text — see ADR-014, unverified against a real Acrobat/Preview fixture.
+  - `save` conforms but throws typed `.unsupportedFeature` — engine-side save is open scope (DocumentSession's `AtomicSave` handles file-level atomicity; content-mutating saves need engine work). This means **annotation writes never reach disk yet** — tracked as Critical in `P1-21-docengine-save-modes` (filed by P1-04 after finding the gap untracked since P1-16).
   - Password-protected PDFs fail `open()` with typed `.unsupportedFeature("passwordProtectedDocument")` — extending the frozen protocol for passwords needs a superseding ADR.
-- **`CPDFium`** — thin header-only module-map target exposing exactly the PDFium headers real usage needs (`fpdfview.h`, `fpdf_edit.h`, `fpdf_doc.h`). Add headers incrementally, never bulk-copy.
+- **`CPDFium`** — thin header-only module-map target exposing exactly the PDFium headers real usage needs (`fpdfview.h`, `fpdf_edit.h`, `fpdf_doc.h`, `fpdf_annot.h`, `fpdf_formfill.h`). Add headers incrementally, never bulk-copy.
 - **PDFium binary** — vendored prebuilt `ThirdParty/pdfium/prebuilt/PDFium.xcframework`, pinned per ADR-001 (resolving escalation E-004), built with `pdf_enable_v8=false` (no JS engine compiled in — structural enforcement of the no-JS rule). A `RenderLatencyBench` executable target backs the render perf budget.
 
-Still absent (why `partial`, and what future tasks land here): `TextEditor` (P1-03), `AnnotationStore` (P1-04/05), `PageOrganizer` (P1-06), `FormModel` (P2-01), engine-side save modes, IOSurface transport wiring.
+Still absent (why `partial`, and what future tasks land here): `PageOrganizer` (P1-06), `FormModel` (P2-01), engine-side save modes (P1-21), IOSurface transport wiring, a real Acrobat/Preview-authored fixture corpus for annotation interop verification.
 
 ## Tests worth knowing about
 

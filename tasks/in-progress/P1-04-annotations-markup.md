@@ -102,3 +102,39 @@ PRD FR-1.3 demands standard annotation objects for round-trip interop (NFR-C2). 
 **Risks:** PDFium quad-point ordering is a known spec/implementation
 mismatch area — must document the exact order used and why. `FS_QUADPOINTSF`/`FS_RECTF`
 struct layout needs care crossing the C shim.
+
+**Implement/Verify (step 4-5 completion):** `DocumentSession`'s `AnnotationUndoStack`
+(pure value type, `Change` enum, returns the action to replay) and the actor's
+`annotations/addAnnotation/updateAnnotation/removeAnnotation/undoAnnotation/redoAnnotation`
+methods over an optional `annotationStore`, all covered by
+`AnnotationUndoStackTests` (7 pure unit tests) and `DocumentSessionAnnotationTests`
+(6 integration tests via `FakePDFEngine`). Built `MarkupToolbarViewModel`
+(`@MainActor`, mirrors `SearchViewModel`) and `MarkupToolbarView` (mirrors
+`SearchBarView`: subtype segmented picker, 4 color swatches, delete/undo/redo),
+covered by `MarkupToolbarViewModelTests` (5 tests). Wired into the real viewer:
+`DocumentViewModel.makeMarkupToolbarViewModel()`, a markup toolbar row in
+`DocumentViewerView` with a "Mark Selection" button (creates markup from the
+current search hit's `TextRun` — the documented creation scope cut), and
+`PageTileView` renders annotation overlays with click-to-select
+(`onSelectAnnotation`) feeding the toolbar's delete/undo/redo. Wired
+`annotationStore: engine` into `App/Sources/Vaultform/AppDelegate.swift`'s
+composition root (App/ had no other in-progress claim). `Scripts/verify.sh
+DocumentSession` → OK; `swift build --package-path App` and `swift test
+--package-path App` → OK (existing `AppDelegateTests`/`MemoryPressureMonitorTests`
+still pass unmodified). Updated `Packages/DocEngineHost/CLAUDE.md`,
+`Packages/DocumentSession/CLAUDE.md` (both still well under the 60-line cap),
+and `okf/packages/pdf-engine-api.md`, `okf/engines/doc-engine-host.md`,
+`okf/sessions/document-session.md` (also fixed pre-existing staleness in the
+latter two: `TextEditor`/P1-03 search were already implemented but still
+listed as absent).
+
+**Still not met (unchanged from the interim decision above, PR will state
+this explicitly):** file-persisted round-trip and Acrobat/Preview interop
+fixture-suite acceptance criteria — both blocked on `DocEngineHost`'s
+`save` being unimplemented (P1-21) and the missing real-annotation fixture
+corpus (E-005-class gap), per `E-009`.
+
+**Next:** commit the DocumentSession-layer + App-wiring + docs changes,
+write the PR description per CLAUDE.md §13, open the `[INTEGRATION]` PR,
+then follow AGENT_LOOP.md Step 8a (poll `ci-status`, self-merge once green
+since the required ADR-014 is present).
