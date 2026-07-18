@@ -6,6 +6,7 @@ import subprocess
 import time
 import json
 import re
+import uuid
 from datetime import datetime, timedelta
 
 # =========================================================
@@ -83,7 +84,52 @@ RULES:
 - Fix issues until passing
 - Update task state files
 - Exit after completing ONE task only
+
+CONTEXT & HANDOFF RULES (each supervisor run is a stateless `claude -p`
+session - anything not committed or written down is lost when this session
+ends or times out):
+- Keep the in-progress task file's `## Journal` section updated as you work
+  (per AGENT_LOOP.md Step 1): what you read, what you decided, what remains.
+- Commit small and often on the task branch; uncommitted work does not
+  survive a timeout.
+- If you cannot finish, write a `## Handoff` section in the task file before
+  exiting: branch name, what is done, exact next steps, verify.sh status,
+  and dead ends already ruled out - the next session resumes from this
+  instead of re-exploring.
+- Before opening the PR, persist what you learned so no future agent repeats
+  this session's exploration: update the primary package's CLAUDE.md if
+  invariants/usage changed, and update the affected okf/ concept files
+  (implementation_status, module-map row, newly discovered invariants) in
+  the same PR (okf/ is the sanctioned exception to package scoping, per
+  CLAUDE.md SS6).
 """
+
+# Rescue path for a work run that dies mid-task (timeout or hard failure):
+# the CLI saves the session transcript incrementally, so rather than launch a
+# brand-new stateless session that re-does all orientation, we resume the SAME
+# session - first `/compact` it (the transcript is usually huge, often the very
+# reason the run timed out; resuming without compaction would die the same way),
+# then continue the task with the compacted context. The /compact argument
+# names exactly the state the continuation needs so summarization doesn't
+# drop it.
+COMPACT_PROMPT = (
+    "/compact Preserve in full: the claimed task ID and file path, the task "
+    "branch name, commits already made, files changed and why, verify.sh "
+    "status, remaining steps, and any constraints or dead ends already "
+    "discovered. Drop raw file contents and tool output already acted on."
+)
+
+RESUME_PROMPT = """
+You are resuming your own interrupted session on an already-claimed task
+(see your compacted context above and the file in tasks/in-progress/).
+Re-establish exact state from the task file's Journal/Handoff section and
+`git status` / `git log` on the task branch, then continue from where you
+stopped, following the same RULES and CONTEXT & HANDOFF RULES as before.
+Do not redo work that is already committed. Exit after completing this ONE
+task only.
+"""
+
+COMPACT_TIMEOUT_SECONDS = 300
 
 # =========================================================
 # CONFIG
@@ -410,7 +456,8 @@ def next_reset_seconds():
 TOKEN_POLL_INTERVAL_SECONDS = 300
 
 
-def wait_for_reset(state, prompt, effort, timeout):
+def wait_for_reset(state, prompt, effort, timeout, pin_session=False,
+                   resume_session_id=None):
     """Re-probe with a real request every TOKEN_POLL_INTERVAL_SECONDS instead of
     blindly sleeping for the full duration implied by the fixed reset-time table
     (that table is only a guess and the actual usage window can reopen sooner).
@@ -429,14 +476,16 @@ def wait_for_reset(state, prompt, effort, timeout):
         state["runs"] += 1
         save_state(state)
 
-        exit_code, output = run_claude(state, prompt, effort, timeout)
+        exit_code, output, session_id = run_claude_attempt(
+            state, prompt, effort, timeout, pin_session, resume_session_id
+        )
 
         with open(os.path.join(LOG_DIR, f"run-{state['runs']}.log"), "w") as f:
             f.write(output or "")
 
         if not is_token_limit(output):
             log("✅ Token window resumed (detected via probe)")
-            return exit_code, output
+            return exit_code, output, session_id
 
         log("⏳ Still rate-limited, continuing to probe...")
 
@@ -472,18 +521,32 @@ def is_token_limit(output):
 CLAUDE_RUN_TIMEOUT_SECONDS = 900
 
 
-def run_claude(state, prompt, effort, timeout):
-    log(f"🚀 Launching Claude (non-interactive print mode, effort={effort})...")
+def build_claude_args(prompt, effort, session_id=None, resume=False):
+    """Argument vector for one `claude -p` call. `session_id` with
+    resume=False pins a fresh session to a caller-chosen UUID; resume=True
+    reattaches to that session instead. The id must be pinned up front
+    because `--output-format json` emits its JSON (including session_id)
+    only at process end - a timed-out run produces none, so the id of a dead
+    session could never be recovered from output after the fact."""
+    args = [
+        "claude",
+        "-p", prompt,
+        "--output-format", "json",
+        "--permission-mode", "bypassPermissions",
+        "--effort", effort,
+    ]
+    if session_id:
+        args += ["--resume", session_id] if resume else ["--session-id", session_id]
+    return args
+
+
+def run_claude(state, prompt, effort, timeout, session_id=None, resume=False):
+    log(f"🚀 Launching Claude (non-interactive print mode, effort={effort}"
+        f"{', resuming ' + session_id[:8] if resume and session_id else ''})...")
 
     try:
         proc = subprocess.run(
-            [
-                "claude",
-                "-p", prompt,
-                "--output-format", "json",
-                "--permission-mode", "bypassPermissions",
-                "--effort", effort,
-            ],
+            build_claude_args(prompt, effort, session_id, resume),
             cwd=PROJECT_DIR,
             capture_output=True,
             text=True,
@@ -511,13 +574,41 @@ def run_claude(state, prompt, effort, timeout):
         return 1, str(e)
 
 
-def run_with_token_handling(state, prompt, effort, timeout, log_suffix):
+def run_claude_attempt(state, prompt, effort, timeout, pin_session,
+                       resume_session_id):
+    """One claude call with session bookkeeping. resume_session_id reattaches
+    to that existing session; otherwise pin_session mints a fresh UUID per
+    attempt (never reused across attempts - `--session-id` requires an id
+    that doesn't exist yet, so a retry/probe must not repeat one). Returns
+    (exit_code, output, session_id) where session_id is whatever a later
+    rescue would need to resume, or None if the session wasn't pinned."""
+    if resume_session_id:
+        session_id = resume_session_id
+        exit_code, output = run_claude(
+            state, prompt, effort, timeout, session_id=session_id, resume=True
+        )
+    elif pin_session:
+        session_id = str(uuid.uuid4())
+        exit_code, output = run_claude(
+            state, prompt, effort, timeout, session_id=session_id
+        )
+    else:
+        session_id = None
+        exit_code, output = run_claude(state, prompt, effort, timeout)
+    return exit_code, output, session_id
+
+
+def run_with_token_handling(state, prompt, effort, timeout, log_suffix,
+                            pin_session=False, resume_session_id=None):
     """Runs one claude -p call and transparently waits out a token-limit hit
-    via wait_for_reset. Returns (exit_code, output) once resolved, or None
-    if the safety cap was hit without a clean probe - callers should treat
-    None as "abandon this iteration attempt, let the outer loop restart
-    fresh" (same semantics the single-call loop already had)."""
-    exit_code, output = run_claude(state, prompt, effort, timeout)
+    via wait_for_reset. Returns (exit_code, output, session_id) once
+    resolved, or None if the safety cap was hit without a clean probe -
+    callers should treat None as "abandon this iteration attempt, let the
+    outer loop restart fresh" (same semantics the single-call loop already
+    had)."""
+    exit_code, output, session_id = run_claude_attempt(
+        state, prompt, effort, timeout, pin_session, resume_session_id
+    )
 
     with open(os.path.join(LOG_DIR, f"run-{state['runs']}-{log_suffix}.log"), "w") as f:
         f.write(output or "")
@@ -525,18 +616,53 @@ def run_with_token_handling(state, prompt, effort, timeout, log_suffix):
     log(f"Claude exit code ({log_suffix}): {exit_code}")
 
     if not is_token_limit(output):
-        return exit_code, output
+        return exit_code, output, session_id
 
     state["token_hits"] += 1
     save_state(state)
 
-    result = wait_for_reset(state, prompt, effort, timeout)
+    result = wait_for_reset(
+        state, prompt, effort, timeout, pin_session, resume_session_id
+    )
     if result is None:
         return None
 
-    exit_code, output = result
+    exit_code, output, session_id = result
     log(f"Claude exit code ({log_suffix}, post-reset): {exit_code}")
-    return exit_code, output
+    return exit_code, output, session_id
+
+
+def attempt_compact_resume(state, session_id, effort):
+    """Rescues a work run that died mid-task: `/compact` the interrupted
+    session's transcript down to task-critical state, then resume it to
+    continue the task with its context intact - instead of a brand-new
+    stateless session redoing all orientation and exploration. Returns the
+    resumed run's (exit_code, output); any rescue-path failure returns exit
+    1 so record_outcome sees the iteration as the failure it is."""
+    log(f"🩹 Work run died mid-task - compacting and resuming session "
+        f"{session_id[:8]}… instead of starting over")
+
+    compact_result = run_with_token_handling(
+        state, COMPACT_PROMPT, "low", COMPACT_TIMEOUT_SECONDS,
+        "compact", resume_session_id=session_id,
+    )
+    if compact_result is None:
+        return 1, ""
+    compact_exit, compact_output, _ = compact_result
+    if compact_exit != 0:
+        log("⚠️ /compact on the dead session failed - falling through to "
+            "normal failure handling (Journal/Handoff notes in the task file "
+            "are the fallback context for the next fresh session)")
+        return 1, compact_output
+
+    resume_result = run_with_token_handling(
+        state, RESUME_PROMPT, effort, CLAUDE_RUN_TIMEOUT_SECONDS,
+        "resume", resume_session_id=session_id,
+    )
+    if resume_result is None:
+        return 1, ""
+    resume_exit, resume_output, _ = resume_result
+    return resume_exit, resume_output
 
 
 # =========================================================
@@ -657,7 +783,7 @@ def main():
         )
         if select_result is None:
             continue
-        select_exit, select_output = select_result
+        select_exit, select_output, _ = select_result
 
         head_after_select = git_head()
         selected_a_task = (
@@ -683,11 +809,21 @@ def main():
         effort, task_label = resolve_effort_for_claim(inprogress_before)
 
         work_result = run_with_token_handling(
-            state, WORK_PROMPT, effort, CLAUDE_RUN_TIMEOUT_SECONDS, "work"
+            state, WORK_PROMPT, effort, CLAUDE_RUN_TIMEOUT_SECONDS, "work",
+            pin_session=True,
         )
         if work_result is None:
             continue
-        work_exit, work_output = work_result
+        work_exit, work_output, work_session_id = work_result
+
+        # One compact+resume rescue per iteration: if the resumed session
+        # dies too, something structural is wrong and the normal
+        # consecutive-failure accounting should see it, not an endless
+        # resume loop.
+        if work_exit != 0 and work_session_id:
+            work_exit, work_output = attempt_compact_resume(
+                state, work_session_id, effort
+            )
 
         sleep_seconds = record_outcome(state, work_exit, head_before, git_head())
         if sleep_seconds is None:

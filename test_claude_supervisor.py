@@ -7,6 +7,7 @@ test_claude_supervisor` or `pytest test_claude_supervisor.py`."""
 import unittest
 
 from claude_supervisor import (
+    build_claude_args,
     effort_for_task,
     is_security_floor_package,
     parse_task_header,
@@ -117,6 +118,32 @@ class EffortForTaskTests(unittest.TestCase):
 
     def test_missing_complexity_and_missing_package_falls_back_to_medium(self):
         self.assertEqual(effort_for_task(None, None), "medium")
+
+
+class BuildClaudeArgsTests(unittest.TestCase):
+    def test_default_has_no_session_flags(self):
+        args = build_claude_args("do work", "medium")
+        self.assertNotIn("--session-id", args)
+        self.assertNotIn("--resume", args)
+        self.assertIn("do work", args)
+        self.assertEqual(args[args.index("--effort") + 1], "medium")
+
+    def test_pinned_session_uses_session_id_flag(self):
+        args = build_claude_args("do work", "high", session_id="abc-123")
+        self.assertEqual(args[args.index("--session-id") + 1], "abc-123")
+        self.assertNotIn("--resume", args)
+
+    def test_resume_uses_resume_flag_not_session_id(self):
+        args = build_claude_args("/compact keep task state", "low",
+                                 session_id="abc-123", resume=True)
+        self.assertEqual(args[args.index("--resume") + 1], "abc-123")
+        self.assertNotIn("--session-id", args)
+
+    def test_resume_without_session_id_adds_no_session_flags(self):
+        # resume=True is meaningless without an id; must not emit a bare flag.
+        args = build_claude_args("do work", "medium", resume=True)
+        self.assertNotIn("--resume", args)
+        self.assertNotIn("--session-id", args)
 
 
 if __name__ == "__main__":
