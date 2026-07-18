@@ -1,5 +1,7 @@
 # P1-04 — Annotations: Text Markup Set
 
+**Owner:** claude-agent · **Branch:** task/P1-04-annotations-markup · **Claimed:** b900e1e30213a435a59ecad9bef49fbb85229e52
+
 **Epic:** E4 · **Primary package:** `Packages/DocEngineHost` (annotation store) + `DocumentSession` (tools) `[INTEGRATION]` · **Complexity:** M · **Priority:** High
 
 ## Goal

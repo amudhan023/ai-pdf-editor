@@ -1,4 +1,6 @@
 {
-  "runs": 351,
-  "token_hits": 2
+  "runs": 352,
+  "token_hits": 2,
+  "consecutive_no_op_runs": 0,
+  "consecutive_failures": 0
 }
