@@ -23,7 +23,7 @@ private let pdfiumLibraryInitialized: Bool = {
 /// it throws a typed `.unsupportedFeature` error rather than silently
 /// no-op'ing (CLAUDE.md SS15: never fake success).
 public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextEditor {
-    private struct OpenDocument {
+    struct OpenDocument {
         let doc: OpaquePointer
         var pages: [Int: OpaquePointer] = [:]
     }
@@ -259,12 +259,12 @@ public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextE
 
     // MARK: - Helpers
 
-    private func requireDocument(_ handle: DocumentHandle) throws -> OpenDocument {
+    func requireDocument(_ handle: DocumentHandle) throws -> OpenDocument {
         guard let entry = documents[handle] else { throw PDFEngineError.documentNotFound(handle) }
         return entry
     }
 
-    private func loadedPage(_ document: DocumentHandle, index: Int) throws -> OpaquePointer {
+    func loadedPage(_ document: DocumentHandle, index: Int) throws -> OpaquePointer {
         var entry = try requireDocument(document)
         if let cached = entry.pages[index] { return cached }
 
@@ -310,7 +310,7 @@ public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextE
         return rgba
     }
 
-    private func mapPDFiumError() -> PDFEngineError {
+    func mapPDFiumError() -> PDFEngineError {
         let code = FPDF_GetLastError()
         switch code {
         case UInt(FPDF_ERR_FILE):

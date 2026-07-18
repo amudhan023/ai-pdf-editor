@@ -3,5 +3,7 @@ module CPDFium {
     header "fpdf_edit.h"
     header "fpdf_doc.h"
     header "fpdf_text.h"
+    header "fpdf_formfill.h"
+    header "fpdf_annot.h"
     export *
 }
