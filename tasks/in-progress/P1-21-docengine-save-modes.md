@@ -2,6 +2,8 @@
 
 **Epic:** E2 · **Primary package:** `Packages/DocEngineHost` · **Complexity:** M · **Priority:** Critical
 
+**Owner:** claude-agent · **Branch:** task/P1-21-docengine-save-modes · **Claimed:** 1908050d4465fa3ff45b8aeb999bf5074be8c059
+
 ## Goal
 `PDFiumEngine.save(_:mode:to:)` actually serializes the open document's current state (including any in-memory mutations — annotations, page ops, form values) to bytes instead of throwing `unsupportedFeature("engineSaveNotYetImplemented")`, so `DocumentSession`'s atomic-save path (P1-16) has something real to write.
 
