@@ -49,9 +49,10 @@ stateDiagram-v2
 ### Step 1 — ORIENT (bounded context load; read in this order, stop when sufficient)
 1. Root `CLAUDE.md` (always — it's the contract).
 2. The task file (goal, requirements, acceptance criteria are the spec; do not re-derive scope from the PRD).
-3. The primary package's `CLAUDE.md` + its `Tests/` directory listing.
-4. **Only** the doc sections the task's Background cites (e.g. "ARCHITECTURE.md §5.2") — not the whole document.
-5. **Only** the source files the task lists under "Files Likely Affected," plus files your search identifies as direct consumers of what you'll change.
+3. Run the `orient-history` skill (`.claude/skills/orient-history/`) for the task's primary package: it aggregates `tasks/done/phase-<n>-lessons.md`, open `tasks/escalations/` entries, and the package's `okf/` `implementation_status` into one short digest, appended to the Journal — so this session doesn't re-derive a conclusion a prior one already recorded.
+4. The primary package's `CLAUDE.md` + its `Tests/` directory listing.
+5. **Only** the doc sections the task's Background cites (e.g. "ARCHITECTURE.md §5.2") — not the whole document.
+6. **Only** the source files the task lists under "Files Likely Affected," plus files your search identifies as direct consumers of what you'll change.
 
 **Context discipline rules:** never read the whole repo, whole docs, or other packages' sources "for background." If understanding requires a file outside the primary package, read its `*API` package instead — if the API is insufficient to understand the contract, that's a documentation defect: note it for Step 7. Record what you read in a `## Journal` section appended to the in-progress task file (this makes handoffs and post-mortems cheap).
 
@@ -87,6 +88,7 @@ G1 mechanical + G2 security + G3 performance + G4 architecture, as applicable to
 - Update the package `CLAUDE.md` if invariants/usage changed (same PR).
 - Update any spec the task's "Documentation Updates" section names.
 - Fix the documentation defects you logged in Step 1 (API docs that were insufficient) — in this PR if in-package, else file a task.
+- Run the `distill-lessons` skill (`.claude/skills/distill-lessons/`) to append a short entry to the task's `tasks/done/phase-<n>-lessons.md` from the Journal — only if the task produced a gotcha, dead end, or scope decision not already captured in the package `CLAUDE.md` or an ADR (see the skill's non-goals; a padded lessons file is worse than a missing entry).
 - PR description: paste the CLAUDE.md §13 checklist, filled honestly; link the task file; include evidence per acceptance criterion (test names, bench numbers, screenshots).
 
 ### Step 8 — COMPLETE
