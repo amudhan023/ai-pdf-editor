@@ -1,5 +1,7 @@
 # P1-05 — Annotations: Notes, Free Text, Ink, Shapes, Stamps
 
+**Owner:** claude-agent · **Branch:** task/P1-05-annotations-rich · **Claimed:** e303cbf86327eae3bed9c3616b3b7217fcc4bc64
+
 **Epic:** E4 · **Primary package:** `Packages/DocEngineHost` + `DocumentSession` `[INTEGRATION]` · **Complexity:** L · **Priority:** High
 
 ## Goal
