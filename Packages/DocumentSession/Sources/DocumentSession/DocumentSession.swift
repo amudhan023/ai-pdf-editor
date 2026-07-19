@@ -36,18 +36,22 @@ public actor DocumentSession {
     private let renderer: any PageRenderer
     private let outlineReader: (any OutlineReader)?
     private let textEditor: (any TextEditor)?
+    private let annotationStore: (any AnnotationStore)?
     private var handle: DocumentHandle?
+    private var annotationUndo = AnnotationUndoStack()
 
     public init(
         lifecycle: any DocumentLifecycle,
         renderer: any PageRenderer,
         outlineReader: (any OutlineReader)? = nil,
-        textEditor: (any TextEditor)? = nil
+        textEditor: (any TextEditor)? = nil,
+        annotationStore: (any AnnotationStore)? = nil
     ) {
         self.lifecycle = lifecycle
         self.renderer = renderer
         self.outlineReader = outlineReader
         self.textEditor = textEditor
+        self.annotationStore = annotationStore
     }
 
     public var isOpen: Bool { handle != nil }
@@ -106,5 +110,76 @@ public actor DocumentSession {
     private func openHandle() throws -> DocumentHandle {
         guard let handle else { throw DocumentSessionError.notOpen }
         return handle
+    }
+
+    // MARK: - Annotations (P1-04)
+
+    /// Empty when no `annotationStore` was wired — same degradation
+    /// contract as `outline()`/`textRuns()`.
+    public func annotations(page: PageIndex) async throws -> [Annotation] {
+        guard let annotationStore else { return [] }
+        return try await annotationStore.annotations(of: openHandle(), page: page)
+    }
+
+    public var canUndoAnnotation: Bool { annotationUndo.canUndo }
+    public var canRedoAnnotation: Bool { annotationUndo.canRedo }
+
+    public func addAnnotation(_ annotation: Annotation) async throws {
+        let store = try requireAnnotationStore()
+        try await store.add(annotation, to: openHandle())
+        annotationUndo.record(.added(annotation))
+    }
+
+    public func updateAnnotation(_ annotation: Annotation) async throws {
+        let store = try requireAnnotationStore()
+        let handle = try openHandle()
+        let before = try await store.annotations(of: handle, page: annotation.page)
+            .first(where: { $0.id == annotation.id })
+        try await store.update(annotation, in: handle)
+        if let before {
+            annotationUndo.record(.updated(before: before, after: annotation))
+        }
+    }
+
+    public func removeAnnotation(_ id: Annotation.ID, page: PageIndex) async throws {
+        let store = try requireAnnotationStore()
+        let handle = try openHandle()
+        guard let existing = try await store.annotations(of: handle, page: page).first(where: { $0.id == id }) else {
+            throw DocumentSessionError.engine(.fieldNotFound(id.uuidString))
+        }
+        try await store.remove(id, from: handle)
+        annotationUndo.record(.removed(existing))
+    }
+
+    @discardableResult
+    public func undoAnnotation() async throws -> Bool {
+        guard let change = annotationUndo.undo() else { return false }
+        try await apply(change)
+        return true
+    }
+
+    @discardableResult
+    public func redoAnnotation() async throws -> Bool {
+        guard let change = annotationUndo.redo() else { return false }
+        try await apply(change)
+        return true
+    }
+
+    private func apply(_ change: AnnotationUndoStack.Change) async throws {
+        let store = try requireAnnotationStore()
+        let handle = try openHandle()
+        switch change {
+        case .added(let annotation):
+            try await store.add(annotation, to: handle)
+        case .removed(let annotation):
+            try await store.remove(annotation.id, from: handle)
+        case .updated(_, let after):
+            try await store.update(after, in: handle)
+        }
+    }
+
+    private func requireAnnotationStore() throws -> any AnnotationStore {
+        guard let annotationStore else { throw DocumentSessionError.engine(.unsupportedFeature("annotationsNotWired")) }
+        return annotationStore
     }
 }

@@ -164,6 +164,12 @@ public final class DocumentViewModel: ObservableObject {
         }
     }
 
+    /// Markup wiring (P1-04): shares this view model's session so annotation
+    /// CRUD/undo go through the same actor the tile/search paths already use.
+    public func makeMarkupToolbarViewModel() -> MarkupToolbarViewModel {
+        MarkupToolbarViewModel(session: session)
+    }
+
     /// Called by the app's memory-pressure source (composition root owns
     /// the `DispatchSourceMemoryPressure`, since its handler fires off this
     /// actor's/object's isolation — see `TileCache.respondToMemoryPressure`).

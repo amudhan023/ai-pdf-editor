@@ -27,7 +27,9 @@ final class DocumentWindowController: NSObject, NSWindowDelegate {
 
     init(onOpenPanel: @escaping () -> Void) {
         let engine = PDFiumEngine()
-        let session = DocumentSession(lifecycle: engine, renderer: engine, outlineReader: engine, textEditor: engine)
+        let session = DocumentSession(
+            lifecycle: engine, renderer: engine, outlineReader: engine, textEditor: engine, annotationStore: engine
+        )
         let viewModel = DocumentViewModel(session: session)
         self.viewModel = viewModel
 

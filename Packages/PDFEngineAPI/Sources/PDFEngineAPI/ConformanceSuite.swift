@@ -51,20 +51,40 @@ public enum PDFEngineConformanceSuite {
         }
     }
 
-    /// Exercises `AnnotationStore` add/update/remove round-trip.
+    /// Exercises `AnnotationStore` add/update/remove round-trip, including
+    /// multi-quad (multi-line) text-markup geometry (ADR-014).
     public static func verifyAnnotationStore<E: AnnotationStore>(_ engine: E, document: DocumentHandle, page: PageIndex) async throws {
-        let annotation = Annotation(page: page, subtype: .highlight, boundingBox: PDFRect(x: 10, y: 10, width: 50, height: 20))
+        let quads = [
+            PDFQuad(
+                topLeft: PDFPoint(x: 10, y: 30), topRight: PDFPoint(x: 60, y: 30),
+                bottomLeft: PDFPoint(x: 10, y: 20), bottomRight: PDFPoint(x: 60, y: 20)
+            ),
+            PDFQuad(
+                topLeft: PDFPoint(x: 10, y: 20), topRight: PDFPoint(x: 40, y: 20),
+                bottomLeft: PDFPoint(x: 10, y: 10), bottomRight: PDFPoint(x: 40, y: 10)
+            )
+        ]
+        let annotation = Annotation(
+            page: page, subtype: .highlight, boundingBox: PDFRect(x: 10, y: 10, width: 50, height: 20),
+            color: AnnotationColor(red: 1, green: 1, blue: 0), author: "conformance", quadPoints: quads,
+            opacity: 0.4
+        )
         try await engine.add(annotation, to: document)
 
         let afterAdd = try await engine.annotations(of: document, page: page)
-        guard afterAdd.contains(where: { $0.id == annotation.id }) else {
+        guard let added = afterAdd.first(where: { $0.id == annotation.id }) else {
             throw ConformanceFailure("annotations(page:) must include a just-added annotation")
         }
+        guard added.quadPoints == quads else {
+            throw ConformanceFailure("add(_:) must persist quadPoints exactly")
+        }
+        guard abs(added.opacity - 0.4) < 0.01 else {
+            throw ConformanceFailure("add(_:) must persist opacity")
+        }
 
-        var updated = annotation
-        updated = Annotation(
+        let updated = Annotation(
             id: annotation.id, page: annotation.page, subtype: annotation.subtype,
-            boundingBox: annotation.boundingBox, contents: "updated"
+            boundingBox: annotation.boundingBox, contents: "updated", quadPoints: quads
         )
         try await engine.update(updated, in: document)
         let afterUpdate = try await engine.annotations(of: document, page: page)
