@@ -145,14 +145,78 @@ final class PDFiumEngineTests: XCTestCase {
         }
     }
 
-    func testSaveIsNotYetImplementedButFailsTyped() async throws {
+    /// P1-21 acceptance criterion: a real open -> mutate (add annotation) ->
+    /// save -> reopen -> read-back cycle through the real engine, for both
+    /// save modes. Writes to a scratch temp file, never back over the fixture.
+    private func makeHighlightAnnotation() -> Annotation {
+        Annotation(
+            page: PageIndex(0), subtype: .highlight,
+            boundingBox: PDFRect(x: 10, y: 10, width: 50, height: 20),
+            quadPoints: [PDFQuad(
+                topLeft: PDFPoint(x: 10, y: 30), topRight: PDFPoint(x: 60, y: 30),
+                bottomLeft: PDFPoint(x: 10, y: 10), bottomRight: PDFPoint(x: 60, y: 10)
+            )]
+        )
+    }
+
+    private func withScratchOutputURL(_ body: (URL) async throws -> Void) async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("P1-21-\(UUID().uuidString).pdf")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try await body(url)
+    }
+
+    func testSaveFullRewriteRoundTripsMutatedAnnotationToDisk() async throws {
+        try await withScratchOutputURL { outputURL in
+            let engine = PDFiumEngine()
+            let document = try await engine.open(url: fixtureURL("starter/uscis-i9.pdf"))
+            let annotation = makeHighlightAnnotation()
+            try await engine.add(annotation, to: document)
+
+            try await engine.save(document, mode: .fullRewrite, to: outputURL)
+            try await engine.close(document)
+
+            XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
+            let reopened = try await engine.open(url: outputURL)
+            let count = try await engine.pageCount(of: reopened)
+            XCTAssertGreaterThan(count, 0)
+            let annotations = try await engine.annotations(of: reopened, page: PageIndex(0))
+            XCTAssertTrue(annotations.contains(where: { $0.id == annotation.id }), "the annotation added before save must survive a fullRewrite round-trip")
+            try await engine.close(reopened)
+        }
+    }
+
+    func testSaveIncrementalRoundTripsMutatedAnnotationToDisk() async throws {
+        try await withScratchOutputURL { outputURL in
+            let engine = PDFiumEngine()
+            let document = try await engine.open(url: fixtureURL("starter/uscis-i9.pdf"))
+            let annotation = makeHighlightAnnotation()
+            try await engine.add(annotation, to: document)
+
+            try await engine.save(document, mode: .incremental, to: outputURL)
+            try await engine.close(document)
+
+            XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
+            let reopened = try await engine.open(url: outputURL)
+            let annotations = try await engine.annotations(of: reopened, page: PageIndex(0))
+            XCTAssertTrue(annotations.contains(where: { $0.id == annotation.id }), "the annotation added before save must survive an incremental round-trip")
+            try await engine.close(reopened)
+        }
+    }
+
+    /// Typed error surfacing (task requirement): a save whose destination
+    /// can't be written (no such directory) must throw `.ioFailure`, never
+    /// silently no-op or crash.
+    func testSaveThrowsTypedIOFailureWhenDestinationIsUnwritable() async throws {
         let engine = PDFiumEngine()
         let document = try await engine.open(url: fixtureURL("starter/uscis-i9.pdf"))
+        let unwritableURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("P1-21-no-such-dir-\(UUID().uuidString)")
+            .appendingPathComponent("out.pdf")
 
         do {
-            try await engine.save(document, mode: .fullRewrite, to: fixtureURL("starter/uscis-i9.pdf"))
-            XCTFail("save should not silently succeed - engine-side save modes are P1-16 scope")
-        } catch PDFEngineError.unsupportedFeature {
+            try await engine.save(document, mode: .fullRewrite, to: unwritableURL)
+            XCTFail("save to a nonexistent directory should not silently succeed")
+        } catch PDFEngineError.ioFailure {
             // expected
         }
         try await engine.close(document)
