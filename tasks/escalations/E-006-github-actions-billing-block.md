@@ -1,6 +1,16 @@
 # E-006 — GitHub Actions is entirely blocked by an account billing issue (blocks all CI, all PRs)
 
-**Raised by:** P0-08 · **Severity:** blocks merge of PR #18 (and, structurally, every other open/future PR — this is repo/account-wide, not specific to this diff)
+**Raised by:** P0-08 · **Severity:** blocks merge of PR #18 (and, structurally, every other open/future PR — this is repo/account-wide, not specific to this diff) · **Status: RESOLVED (2026-07-04) — see Update below**
+
+## Update — RESOLVED (2026-07-04)
+
+Billing was fixed: PR #18 merged on 2026-07-04 (`bb7d42c`) after `ci-status`
+ran a real `verify`/`repo-checks` execution and went green — not another
+instant failure. Every PR merged since (through #74/#75, most recently
+verified 2026-07-19) has run full CI normally. This escalation stays open
+only as history; do not re-file a new escalation for the same underlying
+condition without first checking `gh pr checks <PR>` for the instant-failure
+signature described in Evidence below — that's the tell it has recurred.
 
 ## Evidence
 
