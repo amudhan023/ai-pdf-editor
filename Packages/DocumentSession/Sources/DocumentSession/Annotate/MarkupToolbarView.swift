@@ -16,16 +16,19 @@ struct MarkupToolbarView: View {
         AnnotationColor(red: 1.0, green: 0.5, blue: 0.55)
     ]
 
+    private static let subtypeLabels: [AnnotationSubtype: String] = [
+        .highlight: "Highlight", .underline: "Underline", .strikeOut: "Strikeout", .squiggly: "Squiggly",
+        .text: "Note", .freeText: "Free Text", .square: "Square", .circle: "Circle", .stamp: "Stamp"
+    ]
+
     var body: some View {
         HStack(spacing: 6) {
             Picker("", selection: $markup.selectedSubtype) {
-                Text("Highlight").tag(AnnotationSubtype.highlight)
-                Text("Underline").tag(AnnotationSubtype.underline)
-                Text("Strikeout").tag(AnnotationSubtype.strikeOut)
-                Text("Squiggly").tag(AnnotationSubtype.squiggly)
+                ForEach(MarkupToolbarViewModel.pickerSubtypes, id: \.self) { subtype in
+                    Text(Self.subtypeLabels[subtype] ?? subtype.rawValue).tag(subtype)
+                }
             }
-            .pickerStyle(.segmented)
-            .frame(width: 260)
+            .frame(width: 320)
 
             ForEach(Self.swatches.indices, id: \.self) { index in
                 let swatch = Self.swatches[index]
@@ -41,6 +44,11 @@ struct MarkupToolbarView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            Slider(value: $markup.selectedOpacity, in: 0.1...1.0) {
+                Text("Opacity")
+            }
+            .frame(width: 100)
 
             Button(role: .destructive) {
                 Task { await markup.deleteSelected(page: page) }
