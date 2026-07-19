@@ -170,6 +170,15 @@ public final class DocumentViewModel: ObservableObject {
         MarkupToolbarViewModel(session: session)
     }
 
+    /// Comment sidebar wiring (P1-05): reuses the sidebar's `navigate(to:)`
+    /// path so selecting a comment jumps the viewer exactly like a thumbnail
+    /// or search-result click.
+    public func makeCommentSidebarViewModel() -> CommentSidebarViewModel {
+        CommentSidebarViewModel(session: session) { [weak self] page in
+            self?.navigate(to: page)
+        }
+    }
+
     /// Called by the app's memory-pressure source (composition root owns
     /// the `DispatchSourceMemoryPressure`, since its handler fires off this
     /// actor's/object's isolation — see `TileCache.respondToMemoryPressure`).
