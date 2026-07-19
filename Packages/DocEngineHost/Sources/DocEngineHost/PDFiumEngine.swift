@@ -17,11 +17,9 @@ private let pdfiumLibraryInitialized: Bool = {
 /// isolation gives us the "only one call at a time" serialization the
 /// library requires for free, without a separate lock.
 ///
-/// `save` conforms to `DocumentLifecycle` but is not implemented here: full
-/// engine-side save modes (incremental/full-rewrite) are P1-16's remaining
-/// scope, which was explicitly blocked on this task landing first. Calling
-/// it throws a typed `.unsupportedFeature` error rather than silently
-/// no-op'ing (CLAUDE.md SS15: never fake success).
+/// `save` (P1-21) serializes the open document's current in-memory state —
+/// including mutations made through `AnnotationStore`/`PageOrganizer`/etc.
+/// — via PDFium's `FPDF_SaveAsCopy` (see `PDFiumSaveWriter.swift`).
 public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextEditor {
     struct OpenDocument {
         let doc: OpaquePointer
@@ -53,9 +51,24 @@ public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextE
         return handle
     }
 
+    /// `.fullRewrite` passes `FPDF_NO_INCREMENTAL` (regenerate the whole
+    /// file); `.incremental` passes `FPDF_INCREMENTAL` (append a new xref
+    /// section) — the two flags are mutually exclusive per `fpdf_save.h`.
+    /// Serializes via `FPDF_SaveAsCopy` into memory first, then writes that
+    /// buffer to `url` as one call; atomicity beyond that single write
+    /// (temp file, validate, replace) is `DocumentSession`'s concern
+    /// (CLAUDE.md §3.5), not this engine layer's.
     public func save(_ document: DocumentHandle, mode: SaveMode, to url: URL) async throws {
-        guard documents[document] != nil else { throw PDFEngineError.documentNotFound(document) }
-        throw PDFEngineError.unsupportedFeature("engineSaveNotYetImplemented")
+        let entry = try requireDocument(document)
+        let flags: FPDF_DWORD = mode == .fullRewrite
+            ? FPDF_DWORD(FPDF_NO_INCREMENTAL)
+            : FPDF_DWORD(FPDF_INCREMENTAL)
+        let data = try pdfiumSaveAsCopy(entry.doc, flags: flags)
+        do {
+            try data.write(to: url, options: .atomic)
+        } catch {
+            throw PDFEngineError.ioFailure("PDFium: failed to write saved document to disk: \(error.localizedDescription)")
+        }
     }
 
     public func close(_ document: DocumentHandle) async throws {

@@ -1,6 +1,6 @@
 # E-009 — P1-04 (annotations) blocked from file-persisted round-trip by missing engine-side save
 
-**Raised by:** P1-04 · **Severity:** Medium — scopes down P1-04's acceptance criteria, does not block engine/session-layer work · **Status:** open, proceeding on interim scope
+**Raised by:** P1-04 · **Severity:** Medium — scopes down P1-04's acceptance criteria, does not block engine/session-layer work · **Status:** partially resolved by P1-21 (2026-07-19) — see "After repair" update below
 
 ## Evidence
 
@@ -28,3 +28,5 @@ Proceeding with Option B: P1-04 delivers `AnnotationStore` engine CRUD (real PDF
 ## After repair
 
 Once engine-side save lands: revisit P1-04 (or a follow-up task) to add the file-persisted round-trip test and, once E-005-class fixture acquisition produces real Acrobat/Preview-annotated PDFs, the actual interop comparison.
+
+**Update (P1-21, 2026-07-19):** `PDFiumEngine.save(_:mode:to:)` now actually serializes via `FPDF_SaveAsCopy` (both `.fullRewrite`/`.incremental`) instead of throwing `.unsupportedFeature` — see `tasks/done/P1-21-docengine-save-modes.md`. `DocEngineHostTests.testSaveFullRewriteRoundTripsMutatedAnnotationToDisk` / `testSaveIncrementalRoundTripsMutatedAnnotationToDisk` now cover the file-persisted open→mutate→save→reopen round-trip this escalation flagged as missing, closing the first half of "After repair." Still open: the Acrobat/Preview interop-fixture comparison, which remains blocked on `E-005-corpus-acquisition-gap.md`'s human-in-the-loop fixture acquisition — unchanged by this task. `DocumentSession`'s `AtomicSaver` wiring to the now-real `save()` is also still open (P1-16/P1-04 follow-up scope, not this task's primary package).

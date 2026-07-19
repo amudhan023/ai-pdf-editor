@@ -3,10 +3,10 @@ import PDFEngineAPI
 @testable import DocEngineHost
 
 /// P1-04: `PDFiumEngine: AnnotationStore` against a real PDFium-backed
-/// document. Per `tasks/escalations/E-009-p1-04-engine-save-missing.md`,
-/// these verify PDFium's own read-back of what it just wrote — engine-side
-/// save (P1-21) doesn't exist yet, so a real file-persisted round-trip
-/// isn't achievable here.
+/// document. These verify PDFium's own in-memory read-back of what it just
+/// wrote; a real file-persisted save round-trip is covered separately by
+/// `DocEngineHostTests`'s `testSave*RoundTripsMutatedAnnotationToDisk` tests
+/// (P1-21).
 final class PDFiumAnnotationStoreTests: XCTestCase {
     private static var repoRoot: URL {
         URL(fileURLWithPath: #filePath)
