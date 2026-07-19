@@ -16,6 +16,8 @@ public enum AnnotationSubtype: String, Sendable, Codable, CaseIterable {
     case freeText
     case stamp
     case popup
+    /// Added by ADR-015 (P1-05) alongside `Annotation.linkURL`.
+    case link
 }
 
 /// Opaque RGBA color, 0...1 per channel — engine-neutral so this package
@@ -74,6 +76,14 @@ public struct Annotation: Sendable, Codable, Equatable, Identifiable {
     /// channel (ADR-014).
     public let opacity: Double
     public let createdAt: Date?
+    /// PDF `/InkList` (ISO 32000-1 §12.5.6.13): one array per continuous
+    /// freehand stroke. Empty for every subtype except `.ink` — same
+    /// "empty means not applicable" convention as `quadPoints` (ADR-015).
+    public let inkPaths: [[PDFPoint]]
+    /// The URI target of a `.link` annotation's action, if one exists.
+    /// Read-only in practice: see ADR-015 — the engine can read a
+    /// pre-existing link's URI but cannot author one (no PDFium setter).
+    public let linkURL: URL?
 
     public init(
         id: UUID = UUID(),
@@ -86,7 +96,9 @@ public struct Annotation: Sendable, Codable, Equatable, Identifiable {
         modifiedAt: Date? = nil,
         quadPoints: [PDFQuad] = [],
         opacity: Double = 1.0,
-        createdAt: Date? = nil
+        createdAt: Date? = nil,
+        inkPaths: [[PDFPoint]] = [],
+        linkURL: URL? = nil
     ) {
         self.id = id
         self.page = page
@@ -99,6 +111,8 @@ public struct Annotation: Sendable, Codable, Equatable, Identifiable {
         self.quadPoints = quadPoints
         self.opacity = opacity
         self.createdAt = createdAt
+        self.inkPaths = inkPaths
+        self.linkURL = linkURL
     }
 }
 

@@ -17,6 +17,12 @@ final class FakePDFEngineConformanceTests: XCTestCase {
         try await PDFEngineConformanceSuite.verifyAnnotationStore(engine, document: document, page: PageIndex(0))
     }
 
+    func testInkAnnotationConformance() async throws {
+        let engine = FakePDFEngine()
+        let document = await engine.seedDocument()
+        try await PDFEngineConformanceSuite.verifyInkAnnotation(engine, document: document, page: PageIndex(0))
+    }
+
     func testFormModelConformance() async throws {
         let engine = FakePDFEngine()
         let document = await engine.seedDocument()
