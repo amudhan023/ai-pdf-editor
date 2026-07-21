@@ -2,6 +2,8 @@
 
 **Epic:** E16 · **Primary package:** `App/` (+ each `Services/*.xpc` target) · **Complexity:** M · **Priority:** High
 
+**Owner:** claude-agent · **Branch:** task/P3-11-privacy-manifest · **Claimed:** 1dce55042c906c284d34eefc072062ab57b9e0b3
+
 ## Goal
 Ship a correct `PrivacyInfo.xcprivacy` for the main app bundle and each XPC service, declaring every "required reason" API the binary touches, so Xcode/App Store Connect validation doesn't reject the build before a human ever reviews it.
 

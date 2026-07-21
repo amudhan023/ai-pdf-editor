@@ -2,6 +2,8 @@
 
 **Epic:** E11 · **Primary package:** `Packages/IngestionPipeline` · **Complexity:** L · **Priority:** High
 
+**Owner:** claude-agent · **Branch:** task/P2-08-ingestion-stage-graph · **Claimed:** 4c46f8d8507531392054cc5cda8ff95cfa700c32
+
 ## Goal
 The ingestion backbone (ARCHITECTURE.md §5.1): accept PDF/DOCX/images → normalize → OCR-if-needed → classify document type → route to extractors → emit `ExtractionCandidate[]`; plus the document classifier model integration.
 
