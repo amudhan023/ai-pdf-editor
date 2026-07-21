@@ -80,11 +80,31 @@ public final class ProfileDetailViewModel: ObservableObject {
             let read = try await client.readFields([path], for: personID, ticket: ticket)
             guard let value = read.first?.value else { return }
             fields[path] = DisplayField(path: path, sensitivity: existing.sensitivity, revealedValue: value)
+            if existing.sensitivity == .sensitive {
+                RevealAuditLog.revealed(path: path, personID: personID, sensitivity: existing.sensitivity)
+            }
         } catch TicketIssuingError.requiresReauth {
             needsReauth = true
         } catch {
             errorMessage = "\(error)"
         }
+    }
+
+    /// Copies an already-revealed field's plaintext to the pasteboard,
+    /// transient + auto-expiring (CLAUDE.md §7.4). Deliberately takes no
+    /// path/lookup shortcut that could copy an unrevealed sensitive value —
+    /// callers pass the plaintext the view is already displaying.
+    public func copyRevealedValueToPasteboard(_ value: FieldValue) {
+        let plaintext: String
+        switch value {
+        case .string(let bytes): plaintext = bytes.exposeAsPlaintext()
+        case .date(let date): plaintext = ISO8601DateFormatter().string(from: date)
+        case .number(let number): plaintext = String(number)
+        case .enumeration(let raw): plaintext = raw
+        case .list: plaintext = "" // lists aren't single-value pasteboard candidates in this UI
+        }
+        guard !plaintext.isEmpty else { return }
+        TransientPasteboard.copy(plaintext)
     }
 
     /// Re-masks a field without deleting it — navigating away, closing the
