@@ -46,6 +46,11 @@ public struct VaultWindowView: View {
                 )) { item in
                     RecoveryCodeRevealView(code: item.code, dismiss: { unlock.dismissRecoveryCode() })
                 }
+                .toolbar {
+                    ToolbarItem {
+                        Button("Lock") { Task { await unlock.lock() } }
+                    }
+                }
             }
         }
         .onAppear { unlock.noteActivity() }
