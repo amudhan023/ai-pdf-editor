@@ -7,3 +7,5 @@ Thin XPC bundle main over its host package. No network entitlement — ever (Con
 **Verify:** `swift build --package-path Services/InferenceService && swift test --package-path Services/InferenceService` (wired into CI's `services` job, since this directory isn't part of the `Packages/*` matrix).
 
 P1-08 (Vault) adds the sibling `VaultService` package following the same pattern.
+
+**Privacy manifest (P3-11):** `PrivacyInfo.xcprivacy` here is currently empty (no required-reason API usage in this target graph) — see `docs/specs/privacy-manifest-audit.md` before adding one.
