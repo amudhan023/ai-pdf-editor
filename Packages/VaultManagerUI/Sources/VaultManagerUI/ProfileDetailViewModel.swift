@@ -43,6 +43,7 @@ public final class ProfileDetailViewModel: ObservableObject {
     /// gate as any other sensitive field).
     public func writeField(path: FieldPath, value: FieldValue, sensitivity: SensitivityTier) async {
         errorMessage = nil
+        needsReauth = false
         do {
             let ticket = try await tickets.issue(
                 operation: .write, personID: personID, scopedPaths: [path], sensitivity: sensitivity
@@ -50,6 +51,12 @@ public final class ProfileDetailViewModel: ObservableObject {
             let field = ProfileField(personID: personID, path: path, value: value, sensitivity: sensitivity)
             try await client.writeField(field, ticket: ticket)
             fields[path] = DisplayField(path: path, sensitivity: sensitivity, revealedValue: sensitivity == .sensitive ? nil : value)
+        } catch TicketIssuingError.requiresReauth {
+            // Writing a .sensitive field is gated by the same freshness rule
+            // as reading one (PolicyRules row 3 doesn't distinguish
+            // operation) — surface the same re-auth affordance, not a flat
+            // error the user can't act on.
+            needsReauth = true
         } catch {
             errorMessage = "\(error)"
         }
