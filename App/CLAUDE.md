@@ -38,6 +38,11 @@ test seam (real events need root).
 **Invariants:** composition root only — no business logic here; wire protocols to
 implementations and nothing else.
 
+**Privacy manifest (P3-11):** `App/PrivacyInfo.xcprivacy` declares this bundle's
+required-reason API usage; adding a new `UserDefaults`/file-timestamp/disk-space/
+boot-time call anywhere in the target graph requires updating both it and
+`docs/specs/privacy-manifest-audit.md` in the same PR.
+
 **Windows/tabs/menus (P1-07):** `AppDelegate` no longer owns a single `viewModel` —
 it owns `windowControllers: [DocumentWindowController]`, one per open document
 window, each with its *own* `PDFiumEngine`/`DocumentSession`/`DocumentViewModel`
