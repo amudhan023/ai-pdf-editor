@@ -6,12 +6,14 @@ public enum DocumentSessionError: Error, Sendable, Equatable {
     case alreadyOpen
     case notOpen
     case engine(PDFEngineError)
+    case saveFailed(AtomicSaveError)
 
     public var userMessageKey: String {
         switch self {
         case .alreadyOpen: "error.documentSession.alreadyOpen"
         case .notOpen: "error.documentSession.notOpen"
         case .engine(let underlying): underlying.userMessageKey
+        case .saveFailed: "error.documentSession.saveFailed"
         }
     }
 
@@ -19,6 +21,7 @@ public enum DocumentSessionError: Error, Sendable, Equatable {
         switch self {
         case .alreadyOpen, .notOpen: .userAction
         case .engine(let underlying): underlying.recoverability
+        case .saveFailed: .retryable
         }
     }
 }
@@ -37,7 +40,9 @@ public actor DocumentSession {
     private let outlineReader: (any OutlineReader)?
     private let textEditor: (any TextEditor)?
     private let annotationStore: (any AnnotationStore)?
+    private let atomicSaver: AtomicSaver?
     private var handle: DocumentHandle?
+    private var currentURL: URL?
     private var annotationUndo = AnnotationUndoStack()
 
     public init(
@@ -45,13 +50,15 @@ public actor DocumentSession {
         renderer: any PageRenderer,
         outlineReader: (any OutlineReader)? = nil,
         textEditor: (any TextEditor)? = nil,
-        annotationStore: (any AnnotationStore)? = nil
+        annotationStore: (any AnnotationStore)? = nil,
+        atomicSaver: AtomicSaver? = nil
     ) {
         self.lifecycle = lifecycle
         self.renderer = renderer
         self.outlineReader = outlineReader
         self.textEditor = textEditor
         self.annotationStore = annotationStore
+        self.atomicSaver = atomicSaver
     }
 
     public var isOpen: Bool { handle != nil }
@@ -64,6 +71,7 @@ public actor DocumentSession {
         guard handle == nil else { throw DocumentSessionError.alreadyOpen }
         do {
             handle = try await lifecycle.open(url: url)
+            currentURL = url
         } catch let error as PDFEngineError {
             throw DocumentSessionError.engine(error)
         }
@@ -77,6 +85,38 @@ public actor DocumentSession {
             throw DocumentSessionError.engine(error)
         }
         self.handle = nil
+        currentURL = nil
+    }
+
+    /// Serializes the open document's current (mutated) state through the
+    /// engine, then commits it via the never-corrupt atomic-save path
+    /// (`AtomicSaver`): the engine writes to a same-directory sibling temp
+    /// file (same volume, so the replace below is a true atomic rename —
+    /// never system `/tmp`, and the file only exists transiently for the
+    /// duration of this call), which `AtomicSaver` then validates and swaps
+    /// into place. `PDFEngineError` from the engine surfaces as
+    /// `.engine(...)`; a failure in the atomic-replace step itself surfaces
+    /// as `.saveFailed(...)` — neither is swallowed or generalized (CLAUDE.md §15).
+    public func save(mode: SaveMode = .incremental) async throws {
+        guard let currentURL else { throw DocumentSessionError.notOpen }
+        let handle = try openHandle()
+        guard let atomicSaver else {
+            throw DocumentSessionError.engine(.unsupportedFeature("atomicSaverNotWired"))
+        }
+        let tempURL = currentURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(UUID().uuidString)-\(currentURL.lastPathComponent)")
+        do {
+            try await lifecycle.save(handle, mode: mode, to: tempURL)
+        } catch let error as PDFEngineError {
+            try? FileManager.default.removeItem(at: tempURL)
+            throw DocumentSessionError.engine(error)
+        }
+        do {
+            try await atomicSaver.replace(original: currentURL, withTemp: tempURL)
+        } catch let error as AtomicSaveError {
+            try? FileManager.default.removeItem(at: tempURL)
+            throw DocumentSessionError.saveFailed(error)
+        }
     }
 
     public func pageCount() async throws -> Int {
