@@ -7,11 +7,13 @@ public struct DocumentSidebarView: View {
     enum Pane: String, CaseIterable, Identifiable {
         case thumbnails = "Pages"
         case outline = "Outline"
+        case comments = "Comments"
 
         var id: String { rawValue }
     }
 
     @ObservedObject var viewModel: DocumentViewModel
+    @StateObject private var comments: CommentSidebarViewModel
     let pageCount: Int
 
     @State private var pane: Pane = .thumbnails
@@ -19,6 +21,7 @@ public struct DocumentSidebarView: View {
     public init(viewModel: DocumentViewModel, pageCount: Int) {
         self.viewModel = viewModel
         self.pageCount = pageCount
+        _comments = StateObject(wrappedValue: viewModel.makeCommentSidebarViewModel())
     }
 
     public var body: some View {
@@ -37,6 +40,8 @@ public struct DocumentSidebarView: View {
                 ThumbnailSidebarView(viewModel: viewModel, pageCount: pageCount)
             case .outline:
                 OutlineSidebarView(viewModel: viewModel)
+            case .comments:
+                CommentSidebarView(comments: comments)
             }
         }
     }

@@ -99,6 +99,40 @@ public enum PDFEngineConformanceSuite {
         }
     }
 
+    /// Exercises `AnnotationStore` ink round-trip (ADR-015, P1-05): two
+    /// freehand strokes must persist as separate paths, in order, with their
+    /// point values intact.
+    public static func verifyInkAnnotation<E: AnnotationStore>(_ engine: E, document: DocumentHandle, page: PageIndex) async throws {
+        let paths: [[PDFPoint]] = [
+            [PDFPoint(x: 10, y: 10), PDFPoint(x: 15, y: 20), PDFPoint(x: 20, y: 10)],
+            [PDFPoint(x: 30, y: 30), PDFPoint(x: 35, y: 25)]
+        ]
+        let annotation = Annotation(
+            page: page, subtype: .ink, boundingBox: PDFRect(x: 10, y: 10, width: 25, height: 20),
+            color: AnnotationColor(red: 0, green: 0, blue: 0), inkPaths: paths
+        )
+        try await engine.add(annotation, to: document)
+
+        let afterAdd = try await engine.annotations(of: document, page: page)
+        guard let added = afterAdd.first(where: { $0.id == annotation.id }) else {
+            throw ConformanceFailure("annotations(page:) must include a just-added ink annotation")
+        }
+        guard added.inkPaths.count == paths.count else {
+            throw ConformanceFailure("add(_:) must persist every ink stroke path")
+        }
+        for (expected, actual) in zip(paths, added.inkPaths) {
+            guard expected.count == actual.count else {
+                throw ConformanceFailure("ink stroke path point count must round-trip exactly")
+            }
+        }
+
+        try await engine.remove(annotation.id, from: document)
+        let afterRemove = try await engine.annotations(of: document, page: page)
+        guard !afterRemove.contains(where: { $0.id == annotation.id }) else {
+            throw ConformanceFailure("remove(_:) must delete the ink annotation")
+        }
+    }
+
     /// Exercises `FormModel` read + `setValue` round-trip. Caller must have
     /// already seeded at least one field (this protocol has no "create
     /// field" operation — AcroForm fields come from the document itself).
