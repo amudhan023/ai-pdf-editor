@@ -161,4 +161,152 @@ final class PDFiumAnnotationStoreTests: XCTestCase {
         }
         try await engine.close(document)
     }
+
+    // MARK: - P1-05: ink, shapes, free text, stamp, note, link (ADR-015)
+
+    func testInkAnnotationConformanceAgainstRealFixture() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+        try await PDFEngineConformanceSuite.verifyInkAnnotation(engine, document: document, page: PageIndex(0))
+        try await engine.close(document)
+    }
+
+    func testInkStrokesRoundTripPointsInOrder() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+
+        let paths: [[PDFPoint]] = [
+            [PDFPoint(x: 10, y: 10), PDFPoint(x: 20, y: 40), PDFPoint(x: 30, y: 10)],
+            [PDFPoint(x: 50, y: 50), PDFPoint(x: 60, y: 60)]
+        ]
+        let annotation = Annotation(
+            page: PageIndex(0), subtype: .ink, boundingBox: PDFRect(x: 10, y: 10, width: 50, height: 50),
+            inkPaths: paths
+        )
+        try await engine.add(annotation, to: document)
+
+        let annotations = try await engine.annotations(of: document, page: PageIndex(0))
+        let readBack = try XCTUnwrap(annotations.first(where: { $0.id == annotation.id }))
+        XCTAssertEqual(readBack.inkPaths.count, 2)
+        for (expected, actual) in zip(paths, readBack.inkPaths) {
+            XCTAssertEqual(actual.count, expected.count)
+            for (expectedPoint, actualPoint) in zip(expected, actual) {
+                XCTAssertEqual(actualPoint.x, expectedPoint.x, accuracy: 0.01)
+                XCTAssertEqual(actualPoint.y, expectedPoint.y, accuracy: 0.01)
+            }
+        }
+        try await engine.close(document)
+    }
+
+    /// Square/circle need no new engine code — PDFium's internal
+    /// `CPVT_GenerateAP` renders them from `/Rect` + color alone (unlike
+    /// stamp/freeText, which needed explicit appearance handling in this
+    /// task). This test pins that the generic rect+color path really is
+    /// sufficient for these two subtypes.
+    func testSquareAndCircleRoundTripRectAndColor() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+
+        for subtype: AnnotationSubtype in [.square, .circle] {
+            let annotation = Annotation(
+                page: PageIndex(0), subtype: subtype, boundingBox: PDFRect(x: 5, y: 5, width: 40, height: 30),
+                color: AnnotationColor(red: 0.1, green: 0.2, blue: 0.3)
+            )
+            try await engine.add(annotation, to: document)
+            let shapeAnnotations = try await engine.annotations(of: document, page: PageIndex(0))
+            let readBack = try XCTUnwrap(shapeAnnotations.first(where: { $0.id == annotation.id }))
+            XCTAssertEqual(readBack.boundingBox.width, 40, accuracy: 0.01)
+            XCTAssertEqual(readBack.boundingBox.height, 30, accuracy: 0.01)
+            let color = try XCTUnwrap(readBack.color)
+            XCTAssertEqual(color.red, 0.1, accuracy: 0.01)
+            try await engine.remove(annotation.id, from: document)
+        }
+        try await engine.close(document)
+    }
+
+    func testFreeTextPersistsDefaultAppearanceString() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+
+        let annotation = Annotation(
+            page: PageIndex(0), subtype: .freeText, boundingBox: PDFRect(x: 5, y: 5, width: 100, height: 30),
+            color: AnnotationColor(red: 0, green: 0, blue: 0), contents: "reviewer note"
+        )
+        try await engine.add(annotation, to: document)
+        let freeTextAnnotations = try await engine.annotations(of: document, page: PageIndex(0))
+        let readBack = try XCTUnwrap(freeTextAnnotations.first(where: { $0.id == annotation.id }))
+        XCTAssertEqual(readBack.contents, "reviewer note")
+        try await engine.close(document)
+    }
+
+    /// Stamp gets a real appended appearance object (`FPDFAnnot_AppendObject`
+    /// — the one custom-object path PDFium supports for stamp/ink) rather
+    /// than staying visually blank. `add(_:to:)` only returns successfully if
+    /// `FPDFAnnot_AppendObject` itself returned true (checked with a typed
+    /// `.ioFailure` throw otherwise, see `appendStampAppearance`), so a
+    /// no-throw add plus a rect/color round-trip is a genuine assertion that
+    /// the object landed, not just that the bare annotation was created.
+    func testStampAppendsAppearanceObjectAndRoundTripsRectAndColor() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+
+        let annotation = Annotation(
+            page: PageIndex(0), subtype: .stamp, boundingBox: PDFRect(x: 5, y: 5, width: 60, height: 20),
+            color: AnnotationColor(red: 0.8, green: 0.1, blue: 0.1)
+        )
+        try await engine.add(annotation, to: document)
+        let stampAnnotations = try await engine.annotations(of: document, page: PageIndex(0))
+        let readBack = try XCTUnwrap(stampAnnotations.first(where: { $0.id == annotation.id }))
+        XCTAssertEqual(readBack.subtype, .stamp)
+        XCTAssertEqual(readBack.boundingBox.width, 60, accuracy: 0.01)
+        try await engine.close(document)
+    }
+
+    /// Sticky note: creatable via the generic rect+color+contents+author
+    /// path already covered above; this pins subtype-specific identity so a
+    /// future regression can't silently collapse `.text` into a different
+    /// PDFium subtype constant.
+    func testStickyNoteRoundTripsContentsAuthorAndDates() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+
+        let annotation = Annotation(
+            page: PageIndex(0), subtype: .text, boundingBox: PDFRect(x: 5, y: 5, width: 20, height: 20),
+            contents: "Please double-check this field", author: "Reviewer",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        try await engine.add(annotation, to: document)
+        let noteAnnotations = try await engine.annotations(of: document, page: PageIndex(0))
+        let readBack = try XCTUnwrap(noteAnnotations.first(where: { $0.id == annotation.id }))
+        XCTAssertEqual(readBack.subtype, .text)
+        XCTAssertEqual(readBack.contents, "Please double-check this field")
+        XCTAssertEqual(readBack.author, "Reviewer")
+        try await engine.close(document)
+    }
+
+    /// Link creation is only supported bare (rect/quad, no action) — see
+    /// ADR-015. Supplying a `linkURL` on `add` must fail typed rather than
+    /// silently dropping the URL.
+    func testLinkCreationWithoutURLSucceedsButWithURLThrowsTyped() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+
+        let bareLink = Annotation(page: PageIndex(0), subtype: .link, boundingBox: PDFRect(x: 5, y: 5, width: 40, height: 10))
+        try await engine.add(bareLink, to: document)
+        let linkAnnotations = try await engine.annotations(of: document, page: PageIndex(0))
+        let readBack = try XCTUnwrap(linkAnnotations.first(where: { $0.id == bareLink.id }))
+        XCTAssertNil(readBack.linkURL, "a bare link (no action set) must not fabricate a URL")
+
+        let linkWithURL = Annotation(
+            page: PageIndex(0), subtype: .link, boundingBox: PDFRect(x: 5, y: 20, width: 40, height: 10),
+            linkURL: URL(string: "https://example.com")
+        )
+        do {
+            try await engine.add(linkWithURL, to: document)
+            XCTFail("creating a .link with a linkURL must throw — no PDFium setter exists for the action dictionary")
+        } catch PDFEngineError.unsupportedFeature {
+            // expected
+        }
+        try await engine.close(document)
+    }
 }

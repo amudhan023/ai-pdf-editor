@@ -203,6 +203,35 @@ final class PDFiumEngineTests: XCTestCase {
         }
     }
 
+    /// P1-05: the new geometry-drawn subtypes must survive the same
+    /// file-persisted round-trip P1-21 unblocked for text markup — this is
+    /// the "after repair" half of `E-009` for ink specifically (stamp's
+    /// appended object and free text's `/DA` are exercised in-memory by
+    /// `PDFiumAnnotationStoreTests`; picking one geometry-bearing subtype
+    /// here is enough to prove `FPDF_SaveAsCopy` preserves `/InkList`, not
+    /// just `/QuadPoints`).
+    func testSaveRoundTripsInkAnnotationToDisk() async throws {
+        try await withScratchOutputURL { outputURL in
+            let engine = PDFiumEngine()
+            let document = try await engine.open(url: fixtureURL("starter/uscis-i9.pdf"))
+            let annotation = Annotation(
+                page: PageIndex(0), subtype: .ink, boundingBox: PDFRect(x: 10, y: 10, width: 30, height: 30),
+                inkPaths: [[PDFPoint(x: 10, y: 10), PDFPoint(x: 20, y: 40), PDFPoint(x: 30, y: 10)]]
+            )
+            try await engine.add(annotation, to: document)
+
+            try await engine.save(document, mode: .fullRewrite, to: outputURL)
+            try await engine.close(document)
+
+            let reopened = try await engine.open(url: outputURL)
+            let annotations = try await engine.annotations(of: reopened, page: PageIndex(0))
+            let readBack = try XCTUnwrap(annotations.first(where: { $0.id == annotation.id }))
+            XCTAssertEqual(readBack.inkPaths.count, 1)
+            XCTAssertEqual(readBack.inkPaths.first?.count, 3)
+            try await engine.close(reopened)
+        }
+    }
+
     /// Typed error surfacing (task requirement): a save whose destination
     /// can't be written (no such directory) must throw `.ioFailure`, never
     /// silently no-op or crash.
