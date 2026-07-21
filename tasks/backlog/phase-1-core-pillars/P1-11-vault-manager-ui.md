@@ -1,7 +1,5 @@
 # P1-11 — Vault Manager UI
 
-**Owner:** claude-agent · **Branch:** task/P1-11-vault-manager-ui · **Claimed:** 69723280cf8a6f583f06c0ea0775b4b36f8d671e
-
 **Epic:** E9 · **Primary package:** `Packages/VaultManagerUI` · **Complexity:** L · **Priority:** High
 
 ## Goal
