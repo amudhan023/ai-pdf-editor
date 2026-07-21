@@ -143,10 +143,10 @@ public final class ProfileDetailViewModel: ObservableObject {
         }
     }
 
-    private static func rangesOverlap(_ a: DateRange, _ b: DateRange) -> Bool {
-        let aEnd = a.end ?? .distantFuture
-        let bEnd = b.end ?? .distantFuture
-        return a.start < bEnd && b.start < aEnd
+    private static func rangesOverlap(_ first: DateRange, _ second: DateRange) -> Bool {
+        let firstEnd = first.end ?? .distantFuture
+        let secondEnd = second.end ?? .distantFuture
+        return first.start < secondEnd && second.start < firstEnd
     }
 
     public func writeHistoryEntry(_ entry: HistoryEntry) async {

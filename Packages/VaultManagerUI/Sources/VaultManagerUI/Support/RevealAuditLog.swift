@@ -16,6 +16,8 @@ enum RevealAuditLog {
     /// full path or value — a path's leaf segments can themselves be
     /// semantically revealing (e.g. `licenses.firearm.permit_number`).
     static func revealed(path: FieldPath, personID: PersonID, sensitivity: SensitivityTier) {
-        logger.notice("reveal person=\(personID.value, privacy: .public) section=\(path.section.rawValue, privacy: .public) sensitivity=\(sensitivity.rawValue, privacy: .public)")
+        let section = path.section.rawValue
+        let sens = sensitivity.rawValue
+        logger.notice("reveal person=\(personID.value, privacy: .public) section=\(section, privacy: .public) sens=\(sens, privacy: .public)")
     }
 }

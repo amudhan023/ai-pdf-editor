@@ -4,7 +4,14 @@ import VaultAPI
 
 @MainActor
 final class ProfileDetailViewModelTests: XCTestCase {
-    private func makeViewModel(locked: Bool = false) async -> (ProfileDetailViewModel, FakeVaultClient, InMemoryAuthFreshnessClock, PersonID) {
+    private struct Fixture {
+        let viewModel: ProfileDetailViewModel
+        let client: FakeVaultClient
+        let clock: InMemoryAuthFreshnessClock
+        let personID: PersonID
+    }
+
+    private func makeFixture(locked: Bool = false) async throws -> Fixture {
         let client = FakeVaultClient()
         let clock = InMemoryAuthFreshnessClock()
         let tickets = FakeTicketIssuer(authFreshnessClock: clock)
@@ -12,126 +19,136 @@ final class ProfileDetailViewModelTests: XCTestCase {
         let bootstrapTicket = PolicyTicket(
             operation: .write, personID: personID, issuedAt: Date(), expiresAt: Date().addingTimeInterval(60), signature: Data()
         )
-        _ = try! await client.createPerson(Person(id: personID, kind: .person, displayName: "Priya"), ticket: bootstrapTicket)
+        _ = try await client.createPerson(Person(id: personID, kind: .person, displayName: "Priya"), ticket: bootstrapTicket)
         await client.setLockState(locked ? .locked : .unlocked)
-        return (ProfileDetailViewModel(personID: personID, client: client, tickets: tickets), client, clock, personID)
+        return Fixture(
+            viewModel: ProfileDetailViewModel(personID: personID, client: client, tickets: tickets),
+            client: client, clock: clock, personID: personID
+        )
     }
 
-    private func path(_ raw: String) -> FieldPath { try! FieldPath(validating: raw) }
+    private func path(_ raw: String) throws -> FieldPath { try FieldPath(validating: raw) }
 
-    func testWriteStandardFieldIsImmediatelyVisibleUnmasked() async {
-        let (viewModel, _, _, _) = await makeViewModel()
-        await viewModel.writeField(path: path("identity.legal_name.first"), value: .string(SecureBytes(utf8: "Priya")), sensitivity: .standard)
+    func testWriteStandardFieldIsImmediatelyVisibleUnmasked() async throws {
+        let fixture = try await makeFixture()
+        let fieldPath = try path("identity.legal_name.first")
+        await fixture.viewModel.writeField(path: fieldPath, value: .string(SecureBytes(utf8: "Priya")), sensitivity: .standard)
 
-        let field = viewModel.fields[path("identity.legal_name.first")]
+        let field = fixture.viewModel.fields[fieldPath]
         XCTAssertEqual(field?.isMasked, false)
         XCTAssertEqual(field?.revealedValue, .string(SecureBytes(utf8: "Priya")))
     }
 
-    func testWriteSensitiveFieldWithStaleAuthRequiresReauth() async {
+    func testWriteSensitiveFieldWithStaleAuthRequiresReauth() async throws {
         // Writing a .sensitive field is gated by the same freshness rule as
         // reading one (PolicyRules row 3 doesn't distinguish operation).
-        let (viewModel, _, _, _) = await makeViewModel()
-        await viewModel.writeField(path: path("identity.ssn"), value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
+        let fixture = try await makeFixture()
+        let fieldPath = try path("identity.ssn")
+        await fixture.viewModel.writeField(path: fieldPath, value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
 
-        XCTAssertTrue(viewModel.needsReauth)
-        XCTAssertNil(viewModel.fields[path("identity.ssn")])
+        XCTAssertTrue(fixture.viewModel.needsReauth)
+        XCTAssertNil(fixture.viewModel.fields[fieldPath])
     }
 
-    func testWriteSensitiveFieldStartsMasked() async {
-        let (viewModel, _, clock, _) = await makeViewModel()
-        await clock.noteAuthenticated(at: Date())
-        await viewModel.writeField(path: path("identity.ssn"), value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
+    func testWriteSensitiveFieldStartsMasked() async throws {
+        let fixture = try await makeFixture()
+        let fieldPath = try path("identity.ssn")
+        await fixture.clock.noteAuthenticated(at: Date())
+        await fixture.viewModel.writeField(path: fieldPath, value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
 
-        let field = viewModel.fields[path("identity.ssn")]
+        let field = fixture.viewModel.fields[fieldPath]
         XCTAssertEqual(field?.isMasked, true)
         XCTAssertNil(field?.revealedValue)
     }
 
-    func testRevealSensitiveFieldRequiresReauthWhenAuthIsStale() async {
-        let (viewModel, _, clock, _) = await makeViewModel()
-        await clock.noteAuthenticated(at: Date())
-        await viewModel.writeField(path: path("identity.ssn"), value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
-        await clock.noteAuthenticated(at: .distantPast) // auth goes stale again before reveal
+    func testRevealSensitiveFieldRequiresReauthWhenAuthIsStale() async throws {
+        let fixture = try await makeFixture()
+        let fieldPath = try path("identity.ssn")
+        await fixture.clock.noteAuthenticated(at: Date())
+        await fixture.viewModel.writeField(path: fieldPath, value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
+        await fixture.clock.noteAuthenticated(at: .distantPast) // auth goes stale again before reveal
 
-        await viewModel.reveal(path("identity.ssn"))
+        await fixture.viewModel.reveal(fieldPath)
 
-        XCTAssertTrue(viewModel.needsReauth)
-        XCTAssertTrue(viewModel.fields[path("identity.ssn")]?.isMasked ?? false)
+        XCTAssertTrue(fixture.viewModel.needsReauth)
+        XCTAssertTrue(fixture.viewModel.fields[fieldPath]?.isMasked ?? false)
     }
 
-    func testRevealSensitiveFieldSucceedsWithFreshAuth() async {
-        let (viewModel, _, clock, _) = await makeViewModel()
-        await clock.noteAuthenticated(at: Date())
-        await viewModel.writeField(path: path("identity.ssn"), value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
+    func testRevealSensitiveFieldSucceedsWithFreshAuth() async throws {
+        let fixture = try await makeFixture()
+        let fieldPath = try path("identity.ssn")
+        await fixture.clock.noteAuthenticated(at: Date())
+        await fixture.viewModel.writeField(path: fieldPath, value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
 
-        await viewModel.reveal(path("identity.ssn"))
+        await fixture.viewModel.reveal(fieldPath)
 
-        XCTAssertFalse(viewModel.needsReauth)
-        XCTAssertEqual(viewModel.fields[path("identity.ssn")]?.revealedValue, .string(SecureBytes(utf8: "000-00-0000")))
+        XCTAssertFalse(fixture.viewModel.needsReauth)
+        XCTAssertEqual(fixture.viewModel.fields[fieldPath]?.revealedValue, .string(SecureBytes(utf8: "000-00-0000")))
     }
 
-    func testMaskRestoresMaskedStateWithoutDeletingField() async {
-        let (viewModel, _, clock, _) = await makeViewModel()
-        await clock.noteAuthenticated(at: Date())
-        await viewModel.writeField(path: path("identity.ssn"), value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
-        await viewModel.reveal(path("identity.ssn"))
+    func testMaskRestoresMaskedStateWithoutDeletingField() async throws {
+        let fixture = try await makeFixture()
+        let fieldPath = try path("identity.ssn")
+        await fixture.clock.noteAuthenticated(at: Date())
+        await fixture.viewModel.writeField(path: fieldPath, value: .string(SecureBytes(utf8: "000-00-0000")), sensitivity: .sensitive)
+        await fixture.viewModel.reveal(fieldPath)
 
-        viewModel.mask(path("identity.ssn"))
+        fixture.viewModel.mask(fieldPath)
 
-        let field = viewModel.fields[path("identity.ssn")]
+        let field = fixture.viewModel.fields[fieldPath]
         XCTAssertEqual(field?.isMasked, true)
         XCTAssertNotNil(field) // still present, just re-masked
     }
 
-    func testWriteFieldWhileLockedFailsAndSurfacesError() async {
-        let (viewModel, _, _, _) = await makeViewModel(locked: true)
-        await viewModel.writeField(path: path("identity.legal_name.first"), value: .string(SecureBytes(utf8: "Priya")), sensitivity: .standard)
+    func testWriteFieldWhileLockedFailsAndSurfacesError() async throws {
+        let fixture = try await makeFixture(locked: true)
+        let fieldPath = try path("identity.legal_name.first")
+        await fixture.viewModel.writeField(path: fieldPath, value: .string(SecureBytes(utf8: "Priya")), sensitivity: .standard)
 
-        XCTAssertNil(viewModel.fields[path("identity.legal_name.first")])
-        XCTAssertNotNil(viewModel.errorMessage)
+        XCTAssertNil(fixture.viewModel.fields[fieldPath])
+        XCTAssertNotNil(fixture.viewModel.errorMessage)
     }
 
-    func testCustomFieldPathRoundTrips() async {
-        let (viewModel, _, _, _) = await makeViewModel()
-        let customPath = try! FieldPath.custom(["boat", "hull_id"])
-        await viewModel.writeField(path: customPath, value: .string(SecureBytes(utf8: "HULL-1")), sensitivity: .standard)
+    func testCustomFieldPathRoundTrips() async throws {
+        let fixture = try await makeFixture()
+        let customPath = try FieldPath.custom(["boat", "hull_id"])
+        await fixture.viewModel.writeField(path: customPath, value: .string(SecureBytes(utf8: "HULL-1")), sensitivity: .standard)
 
-        XCTAssertEqual(viewModel.fields[customPath]?.revealedValue, .string(SecureBytes(utf8: "HULL-1")))
+        XCTAssertEqual(fixture.viewModel.fields[customPath]?.revealedValue, .string(SecureBytes(utf8: "HULL-1")))
     }
 
-    func testOverlappingHistoryEntriesAreDetected() async {
-        let (viewModel, client, _, personID) = await makeViewModel()
+    func testOverlappingHistoryEntriesAreDetected() async throws {
+        let fixture = try await makeFixture()
         let ticket = PolicyTicket(
-            operation: .write, personID: personID, issuedAt: Date(), expiresAt: Date().addingTimeInterval(60), signature: Data()
+            operation: .write, personID: fixture.personID, issuedAt: Date(), expiresAt: Date().addingTimeInterval(60), signature: Data()
         )
         let jan = Date(timeIntervalSince1970: 0)
         let june = jan.addingTimeInterval(60 * 60 * 24 * 180)
         let mar = jan.addingTimeInterval(60 * 60 * 24 * 60)
         let dec = jan.addingTimeInterval(60 * 60 * 24 * 340)
-        let first = HistoryEntry(personID: personID, category: .employer, range: DateRange(start: jan, end: june))
-        try! await client.writeHistoryEntry(first, ticket: ticket)
-        await viewModel.loadHistory(.employer)
+        let entry = HistoryEntry(personID: fixture.personID, category: .employer, range: DateRange(start: jan, end: june))
+        try await fixture.client.writeHistoryEntry(entry, ticket: ticket)
+        await fixture.viewModel.loadHistory(.employer)
 
-        let overlapping = viewModel.overlaps(with: DateRange(start: mar, end: dec), category: .employer)
+        let overlapping = fixture.viewModel.overlaps(with: DateRange(start: mar, end: dec), category: .employer)
 
-        XCTAssertEqual(overlapping.map(\.id), [first.id])
+        XCTAssertEqual(overlapping.map(\.id), [entry.id])
     }
 
-    func testNonOverlappingHistoryEntriesAreNotFlagged() async {
-        let (viewModel, client, _, personID) = await makeViewModel()
+    func testNonOverlappingHistoryEntriesAreNotFlagged() async throws {
+        let fixture = try await makeFixture()
         let ticket = PolicyTicket(
-            operation: .write, personID: personID, issuedAt: Date(), expiresAt: Date().addingTimeInterval(60), signature: Data()
+            operation: .write, personID: fixture.personID, issuedAt: Date(), expiresAt: Date().addingTimeInterval(60), signature: Data()
         )
         let jan = Date(timeIntervalSince1970: 0)
         let june = jan.addingTimeInterval(60 * 60 * 24 * 180)
         let july = june.addingTimeInterval(60 * 60 * 24)
         let dec = jan.addingTimeInterval(60 * 60 * 24 * 340)
-        let first = HistoryEntry(personID: personID, category: .employer, range: DateRange(start: jan, end: june))
-        try! await client.writeHistoryEntry(first, ticket: ticket)
-        await viewModel.loadHistory(.employer)
+        let entry = HistoryEntry(personID: fixture.personID, category: .employer, range: DateRange(start: jan, end: june))
+        try await fixture.client.writeHistoryEntry(entry, ticket: ticket)
+        await fixture.viewModel.loadHistory(.employer)
 
-        let overlapping = viewModel.overlaps(with: DateRange(start: july, end: dec), category: .employer)
+        let overlapping = fixture.viewModel.overlaps(with: DateRange(start: july, end: dec), category: .employer)
 
         XCTAssertTrue(overlapping.isEmpty)
     }

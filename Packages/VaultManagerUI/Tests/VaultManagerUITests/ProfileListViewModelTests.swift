@@ -27,40 +27,46 @@ final class ProfileListViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.errorMessage)
     }
 
-    func testDeletePersonRemovesFromLocalListAndRelationships() async {
+    func testDeletePersonRemovesFromLocalListAndRelationships() async throws {
         let (viewModel, _) = await makeViewModel()
-        let person = (await viewModel.createPerson(kind: .person, displayName: "Priya"))!
-        let other = (await viewModel.createPerson(kind: .person, displayName: "Sam"))!
-        await viewModel.addRelationship(from: person.id, to: other.id, kind: .spouse)
+        let createdPriya = await viewModel.createPerson(kind: .person, displayName: "Priya")
+        let createdSam = await viewModel.createPerson(kind: .person, displayName: "Sam")
+        let priya = try XCTUnwrap(createdPriya)
+        let sam = try XCTUnwrap(createdSam)
+        await viewModel.addRelationship(from: priya.id, to: sam.id, kind: .spouse)
 
-        await viewModel.deletePerson(person.id)
+        await viewModel.deletePerson(priya.id)
 
-        XCTAssertFalse(viewModel.persons.contains { $0.id == person.id })
-        XCTAssertNil(viewModel.relationships[person.id])
+        XCTAssertFalse(viewModel.persons.contains { $0.id == priya.id })
+        XCTAssertNil(viewModel.relationships[priya.id])
     }
 
-    func testAddRelationshipIsReflectedLocally() async {
+    func testAddRelationshipIsReflectedLocally() async throws {
         let (viewModel, _) = await makeViewModel()
-        let a = (await viewModel.createPerson(kind: .person, displayName: "Priya"))!
-        let b = (await viewModel.createPerson(kind: .person, displayName: "Sam"))!
+        let createdPriya = await viewModel.createPerson(kind: .person, displayName: "Priya")
+        let createdSam = await viewModel.createPerson(kind: .person, displayName: "Sam")
+        let priya = try XCTUnwrap(createdPriya)
+        let sam = try XCTUnwrap(createdSam)
 
-        await viewModel.addRelationship(from: a.id, to: b.id, kind: .spouse)
+        await viewModel.addRelationship(from: priya.id, to: sam.id, kind: .spouse)
 
-        XCTAssertEqual(viewModel.relationships[a.id]?.count, 1)
-        XCTAssertEqual(viewModel.relationships[a.id]?.first?.kind, .spouse)
+        XCTAssertEqual(viewModel.relationships[priya.id]?.count, 1)
+        XCTAssertEqual(viewModel.relationships[priya.id]?.first?.kind, .spouse)
     }
 
-    func testRefreshRelationshipsPullsFromClient() async {
+    func testRefreshRelationshipsPullsFromClient() async throws {
         let (viewModel, client) = await makeViewModel()
-        let a = (await viewModel.createPerson(kind: .person, displayName: "Priya"))!
-        let b = (await viewModel.createPerson(kind: .person, displayName: "Sam"))!
+        let createdPriya = await viewModel.createPerson(kind: .person, displayName: "Priya")
+        let createdSam = await viewModel.createPerson(kind: .person, displayName: "Sam")
+        let priya = try XCTUnwrap(createdPriya)
+        let sam = try XCTUnwrap(createdSam)
         let ticket = PolicyTicket(
-            operation: .write, personID: a.id, issuedAt: Date(), expiresAt: Date().addingTimeInterval(60), signature: Data()
+            operation: .write, personID: priya.id, issuedAt: Date(), expiresAt: Date().addingTimeInterval(60), signature: Data()
         )
-        try? await client.addRelationship(RelationshipEdge(from: a.id, to: b.id, kind: .child), ticket: ticket)
+        try await client.addRelationship(RelationshipEdge(from: priya.id, to: sam.id, kind: .child), ticket: ticket)
 
         await viewModel.refreshRelationships()
 
-        XCTAssertEqual(viewModel.relationships[a.id]?.count, 1)
+        XCTAssertEqual(viewModel.relationships[priya.id]?.count, 1)
     }
 }
