@@ -47,6 +47,7 @@ stateDiagram-v2
 4. Branch `task/<ID>-<slug>` from fresh `main`.
 
 ### Step 1 — ORIENT (bounded context load; read in this order, stop when sufficient)
+0. Soft rule, non-blocking: if the `graphify` skill is available and the change is non-trivial, query it first (architecture/relationships/affected modules) before reading source — skip silently if the skill or `graphify-out/` isn't available.
 1. Root `CLAUDE.md` (always — it's the contract).
 2. The task file (goal, requirements, acceptance criteria are the spec; do not re-derive scope from the PRD).
 3. The primary package's `CLAUDE.md` + its `Tests/` directory listing.
