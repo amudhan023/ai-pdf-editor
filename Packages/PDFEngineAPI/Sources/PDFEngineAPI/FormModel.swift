@@ -41,6 +41,18 @@ public struct FormField: Sendable, Codable, Equatable, Identifiable {
     public let tabOrder: Int
     public let isReadOnly: Bool
     public let currentValue: String?
+    /// The "on" export value for `.checkbox`/`.radioButton` (PDF `/AP/N`'s
+    /// non-`/Off` key) — `nil` for other kinds. ADR-016.
+    public let exportValue: String?
+    /// For `.radioButton`, the field name shared by every widget in the same
+    /// radio group (distinct from `name`/`id`, which is unique per widget) —
+    /// `nil` for non-radio kinds or an ungrouped radio widget. ADR-016.
+    public let groupName: String?
+    /// `.choice`/`.listBox` selectable option list, display order preserved;
+    /// empty for other kinds. ADR-016.
+    public let choiceOptions: [String]
+    /// PDF `/Ff` bit 2. ADR-016.
+    public let isRequired: Bool
 
     public init(
         name: String,
@@ -51,7 +63,11 @@ public struct FormField: Sendable, Codable, Equatable, Identifiable {
         tooltip: String? = nil,
         tabOrder: Int,
         isReadOnly: Bool = false,
-        currentValue: String? = nil
+        currentValue: String? = nil,
+        exportValue: String? = nil,
+        groupName: String? = nil,
+        choiceOptions: [String] = [],
+        isRequired: Bool = false
     ) {
         self.name = name
         self.page = page
@@ -62,6 +78,10 @@ public struct FormField: Sendable, Codable, Equatable, Identifiable {
         self.tabOrder = tabOrder
         self.isReadOnly = isReadOnly
         self.currentValue = currentValue
+        self.exportValue = exportValue
+        self.groupName = groupName
+        self.choiceOptions = choiceOptions
+        self.isRequired = isRequired
     }
 }
 

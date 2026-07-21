@@ -28,6 +28,16 @@ final class PDFiumAnnotationStoreTests: XCTestCase {
         try await engine.close(document)
     }
 
+    /// P2-01: `verifyFormModel` only mutates the in-memory document (no
+    /// `save()` call), same as `verifyAnnotationStore` above — safe to run
+    /// directly against the checked-in fixture, never modifies it on disk.
+    func testFormModelConformanceAgainstRealFixture() async throws {
+        let engine = PDFiumEngine()
+        let document = try await engine.open(url: fixtureURL("starter/irs-fw9.pdf"))
+        try await PDFEngineConformanceSuite.verifyFormModel(engine, document: document)
+        try await engine.close(document)
+    }
+
     /// Multi-line highlight: two quads on different lines must round-trip
     /// in the same order with the same corner values (Z-order per ADR-014).
     func testMultiQuadHighlightRoundTripsInOrder() async throws {

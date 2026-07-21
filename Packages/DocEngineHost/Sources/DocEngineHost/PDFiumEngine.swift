@@ -24,6 +24,10 @@ public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextE
     struct OpenDocument {
         let doc: OpaquePointer
         var pages: [Int: OpaquePointer] = [:]
+        /// Lazily created (P2-01): only `FormModel` needs an
+        /// `FPDF_FORMHANDLE` — the render/text/annotation paths never touch
+        /// it. See `Forms/FormFillEnvironment.swift`.
+        var formHandle: FPDF_FORMHANDLE?
     }
 
     private var documents: [DocumentHandle: OpenDocument] = [:]
@@ -73,6 +77,7 @@ public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextE
 
     public func close(_ document: DocumentHandle) async throws {
         guard let entry = documents[document] else { throw PDFEngineError.documentNotFound(document) }
+        if let formHandle = entry.formHandle { FormFillEnvironment.closeHandle(formHandle) }
         for (_, page) in entry.pages { FPDF_ClosePage(page) }
         FPDF_CloseDocument(entry.doc)
         documents.removeValue(forKey: document)
@@ -275,6 +280,19 @@ public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextE
     func requireDocument(_ handle: DocumentHandle) throws -> OpenDocument {
         guard let entry = documents[handle] else { throw PDFEngineError.documentNotFound(handle) }
         return entry
+    }
+
+    /// Lazily creates and caches the `FPDF_FORMHANDLE` `FormModel` needs
+    /// (P2-01) — one per open document, torn down in `close`.
+    func requireFormHandle(_ document: DocumentHandle) throws -> FPDF_FORMHANDLE {
+        var entry = try requireDocument(document)
+        if let existing = entry.formHandle { return existing }
+        guard let formHandle = FormFillEnvironment.makeHandle(for: entry.doc) else {
+            throw PDFEngineError.ioFailure("PDFium: failed to init form-fill environment")
+        }
+        entry.formHandle = formHandle
+        documents[document] = entry
+        return formHandle
     }
 
     func loadedPage(_ document: DocumentHandle, index: Int) throws -> OpaquePointer {
