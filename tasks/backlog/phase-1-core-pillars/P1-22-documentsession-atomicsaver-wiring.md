@@ -31,8 +31,3 @@ P1-16 delivered the file-level atomic-save mechanics (temp file, validation, ato
 
 ## Documentation Updates
 - `Packages/DocumentSession/CLAUDE.md`, `okf/sessions/document-session.md`.
-
----
-**Owner:** claude-agent
-**Branch:** task/P1-22-documentsession-atomicsaver-wiring
-**Claimed:** 2026-07-19
