@@ -4,6 +4,14 @@
 
 **Owner:** claude-agent · **Branch:** task/P3-11-privacy-manifest · **Claimed:** 1dce55042c906c284d34eefc072062ab57b9e0b3
 
+## Journal
+
+- Verified each declared category against the actual SwiftPM target graph (not just the directory): `App/Package.swift` pulls in `DocumentSession`, which pulls in `AtomicSave.swift` (file-timestamp reads for versioned-backup comparison) and its own `UserDefaults` usage (scroll position) — both already declared in the checked-out `App/PrivacyInfo.xcprivacy`, confirmed real rather than speculative.
+- `Services/DocEngineService|InferenceService|VaultService` each depend only on `Packages/Platform`, which has zero required-reason API usage — their empty manifests are correct. `Packages/VaultStore/.../BackupManager.swift` does use file timestamps but isn't yet linked into `VaultService`'s target, so nothing to declare there today (flagged in the audit doc for whoever wires it in).
+- Added `docs/specs/privacy-manifest-audit.md` (the artifact the acceptance criteria require) plus one-line pointers from `App/CLAUDE.md` and each `Services/*/README.md`.
+- Added a `repo-checks` CI step asserting all four manifest files exist (Testing Requirements' "CI check ... if feasible").
+- Not done: Xcode's Generate Privacy Report / archive-export validation, since there's no `.xcodeproj` in this repo (`App/CLAUDE.md`'s standing note) — no tool exists here to run that check against. Declarations were instead verified by hand against the real target graph, which is what that tool would have inspected. Flagging as a known scope cut rather than silently skipping it.
+
 ## Goal
 Ship a correct `PrivacyInfo.xcprivacy` for the main app bundle and each XPC service, declaring every "required reason" API the binary touches, so Xcode/App Store Connect validation doesn't reject the build before a human ever reviews it.
 

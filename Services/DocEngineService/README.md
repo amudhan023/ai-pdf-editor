@@ -7,3 +7,5 @@ Thin XPC bundle main over its host package. No network entitlement — ever (Con
 **Verify:** `swift build --package-path Services/DocEngineService && swift test --package-path Services/DocEngineService` (wired into CI's `services` job, since this directory isn't part of the `Packages/*` matrix).
 
 P0-06 (DocEngine render pipeline) delivered the real PDFium-backed engine (`Packages/DocEngineHost`'s `PDFiumEngine`, a `DocumentLifecycle`/`PageRenderer` implementation) but deliberately did *not* replace this skeleton's ping logic yet — real cross-process XPC still isn't achievable without P0-07's app-bundle embedding (same constraint this file's P0-05 section names), so wiring `PDFiumEngine` behind a real render route here is P0-07-or-later scope, not a P0-06 gap. P1-08 (Vault), P1-12 (Inference) add sibling `VaultService`/`InferenceService` packages following the same pattern.
+
+**Privacy manifest (P3-11):** `PrivacyInfo.xcprivacy` here is currently empty (no required-reason API usage in this target graph) — see `docs/specs/privacy-manifest-audit.md` before adding one.
