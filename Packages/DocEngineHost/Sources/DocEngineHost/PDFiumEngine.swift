@@ -295,6 +295,19 @@ public actor PDFiumEngine: DocumentLifecycle, PageRenderer, OutlineReader, TextE
         return formHandle
     }
 
+    /// Closes every cached `FPDF_PAGE` for `document` and clears the cache —
+    /// required before any `PageOrganizer` operation that changes the page
+    /// tree's shape (insert/delete/reorder), since the cache is keyed by
+    /// *index* and a structural mutation invalidates that mapping for every
+    /// cached page, not just the ones the operation directly touched. See
+    /// `Pages/PDFiumPageOrganizer.swift`. Safe to call on an empty cache.
+    func invalidatePageCache(_ document: DocumentHandle) {
+        guard var entry = documents[document] else { return }
+        for (_, page) in entry.pages { FPDF_ClosePage(page) }
+        entry.pages.removeAll()
+        documents[document] = entry
+    }
+
     func loadedPage(_ document: DocumentHandle, index: Int) throws -> OpaquePointer {
         var entry = try requireDocument(document)
         if let cached = entry.pages[index] { return cached }
