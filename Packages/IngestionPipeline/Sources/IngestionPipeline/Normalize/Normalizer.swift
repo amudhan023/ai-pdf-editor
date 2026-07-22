@@ -1,15 +1,11 @@
 import Foundation
 import PDFEngineAPI
 
-/// PDF/image/TXT -> `NormalizedDocument`. `DOCX`/`RTF` are detected but not
-/// yet normalizable — a real import-allowlist gap, not an oversight:
-/// `NSAttributedString`'s document-reading initializers for those types
-/// (`.officeOpenXML`/`.rtf`) live in AppKit, and AppKit is not in this
-/// package's allowlist (`IngestionSession`'s is, `IngestionPipeline`'s
-/// isn't — see `Scripts/import-allowlist.txt`). Escalated rather than
-/// silently importing AppKit or hand-rolling a DOCX-zip/XML or RTF-token
-/// parser as a unilateral boundary call (CLAUDE.md §3.7). See this task's
-/// `## Handoff` in `tasks/in-progress/P2-08-ingestion-stage-graph.md`.
+/// PDF/image/TXT/DOCX/RTF -> `NormalizedDocument`. DOCX/RTF text extraction
+/// (ADR-017) lives in `DocxTextExtractor`/`RtfTextExtractor` — kept as
+/// separate types since each has its own bounded, self-contained grammar
+/// (zip local-file-headers + DEFLATE + XML for DOCX; a control-word
+/// tokenizer for RTF) that doesn't belong inlined into this orchestrator.
 public struct Normalizer: Sendable {
     /// Rejects input above this size before reading it, rather than after —
     /// bounded-memory handling for the "50MB photo" acceptance criterion:
@@ -60,11 +56,29 @@ public struct Normalizer: Sendable {
             return try normalizeText(fileURL: fileURL, format: format)
         case .jpeg, .png, .heic, .tiff:
             return try normalizeImage(fileURL: fileURL, format: format)
-        case .docx, .rtf:
-            throw IngestionError.unsupportedFormat(format)
+        case .docx:
+            return try normalizeDocx(fileURL: fileURL)
+        case .rtf:
+            return try normalizeRtf(fileURL: fileURL)
         case .unknown:
             throw IngestionError.unsupportedFormat(format)
         }
+    }
+
+    private func normalizeDocx(fileURL: URL) throws -> NormalizedDocument {
+        guard let data = try? Data(contentsOf: fileURL) else {
+            throw IngestionError.corruptInput(.docx, reason: "could not read file")
+        }
+        let text = try DocxTextExtractor.extractPlainText(from: data)
+        return NormalizedDocument(sourceFormat: .docx, pages: [NormalizedPage(index: PageIndex(0), text: text)])
+    }
+
+    private func normalizeRtf(fileURL: URL) throws -> NormalizedDocument {
+        guard let data = try? Data(contentsOf: fileURL) else {
+            throw IngestionError.corruptInput(.rtf, reason: "could not read file")
+        }
+        let text = try RtfTextExtractor.extractPlainText(from: data)
+        return NormalizedDocument(sourceFormat: .rtf, pages: [NormalizedPage(index: PageIndex(0), text: text)])
     }
 
     private func normalizePDF(document: DocumentHandle, format: DocumentFormat) async throws -> NormalizedDocument {

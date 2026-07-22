@@ -77,14 +77,17 @@ final class IngestionPipelineRunnerTests: XCTestCase {
             classifier: DocumentClassifier(inferenceClient: mock),
             extractors: []
         )
-        let url = tempDir.appendingPathComponent("resume.docx")
-        try? Data([0x50, 0x4B, 0x03, 0x04]).write(to: url)
+        // No magic bytes and no recognized extension - format detection
+        // itself can't identify this input, distinct from DOCX/RTF's
+        // "recognized but needs a decision" case.
+        let url = tempDir.appendingPathComponent("mystery.bin")
+        try? Data([0x00, 0x01, 0x02, 0x03]).write(to: url)
 
         do {
             _ = try await runner.run(fileURL: url)
             XCTFail("expected .unsupportedFormat to propagate")
         } catch let error as IngestionError {
-            XCTAssertEqual(error, .unsupportedFormat(.docx))
+            XCTAssertEqual(error, .unsupportedFormat(.unknown))
         }
     }
 
@@ -162,11 +165,21 @@ final class IngestionPipelineRunnerTests: XCTestCase {
 
         let rtfURL = tempDir.appendingPathComponent("letter.rtf")
         try? "{\\rtf1 hi}".data(using: .utf8)!.write(to: rtfURL)
+        let rtfResult = try await runner.run(fileURL: rtfURL)
+        XCTAssertEqual(rtfResult.classification.type, .generic)
+
+        let docxURL = tempDir.appendingPathComponent("resume.docx")
+        try? DocxFixtureBuilder.buildMinimalDocx(bodyXML: "<w:p><w:r><w:t>hi</w:t></w:r></w:p>", compressed: false).write(to: docxURL)
+        let docxResult = try await runner.run(fileURL: docxURL)
+        XCTAssertEqual(docxResult.classification.type, .generic)
+
+        let unknownURL = tempDir.appendingPathComponent("mystery.bin")
+        try? Data([0x00, 0x01, 0x02]).write(to: unknownURL)
         do {
-            _ = try await runner.run(fileURL: rtfURL)
-            XCTFail("rtf should be a typed unsupported-format error, not silently succeed")
+            _ = try await runner.run(fileURL: unknownURL)
+            XCTFail("unrecognized input should be a typed unsupported-format error, not silently succeed")
         } catch let error as IngestionError {
-            XCTAssertEqual(error, .unsupportedFormat(.rtf))
+            XCTAssertEqual(error, .unsupportedFormat(.unknown))
         }
     }
 }

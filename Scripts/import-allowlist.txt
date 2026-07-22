@@ -9,7 +9,7 @@ PolicyKit: VaultAPI CryptoKit
 AuditLog: os OSLog CryptoKit
 FormKnowledge: PDFEngineAPI VaultAPI
 AutofillEngine: PDFEngineAPI VaultAPI InferenceAPI PolicyKit FormKnowledge
-IngestionPipeline: PDFEngineAPI VaultAPI InferenceAPI
+IngestionPipeline: PDFEngineAPI VaultAPI InferenceAPI Compression
 DocumentSession: PDFEngineAPI Platform SwiftUI AppKit os OSLog
 AutofillSession: AutofillEngine VaultAPI PolicyKit PDFEngineAPI SwiftUI AppKit os OSLog
 IngestionSession: IngestionPipeline VaultAPI PolicyKit SwiftUI AppKit os OSLog

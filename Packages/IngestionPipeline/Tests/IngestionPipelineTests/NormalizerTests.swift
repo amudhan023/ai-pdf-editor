@@ -90,26 +90,9 @@ final class NormalizerTests: XCTestCase {
         XCTAssertEqual(doc.pages[0].imageData, jpegBytes)
     }
 
-    func testDocxIsDetectedButUnsupported() async throws {
-        let engine = FakePDFEngine()
-        let normalizer = Normalizer(pageRenderer: engine)
-        // Real ZIP signature - DOCX is a zip container - with a .docx extension.
-        let url = write(Data([0x50, 0x4B, 0x03, 0x04]), name: "resume.docx")
-
-        await XCTAssertThrowsErrorAsync(try await normalizer.normalize(fileURL: url)) { error in
-            XCTAssertEqual(error as? IngestionError, .unsupportedFormat(.docx))
-        }
-    }
-
-    func testRtfIsDetectedButUnsupported() async throws {
-        let engine = FakePDFEngine()
-        let normalizer = Normalizer(pageRenderer: engine)
-        let url = write("{\\rtf1\\ansi hello}".data(using: .utf8)!, name: "letter.rtf")
-
-        await XCTAssertThrowsErrorAsync(try await normalizer.normalize(fileURL: url)) { error in
-            XCTAssertEqual(error as? IngestionError, .unsupportedFormat(.rtf))
-        }
-    }
+    // DOCX/RTF normalization (ADR-017) is covered by DocxRtfExtractionTests.swift,
+    // including the corrupt-input typed-error path this file used to assert
+    // as "unsupported" before that ADR landed.
 
     func testOversizedInputIsRejectedWithoutReadingIt() async throws {
         let engine = FakePDFEngine()

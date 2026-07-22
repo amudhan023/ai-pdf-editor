@@ -2,7 +2,7 @@
 
 **Purpose:** Document ingestion stage graph: normalize -> OCR -> classify -> extract -> map -> conflict-detect. Emits ExtractionCandidates only - never writes to the vault.
 
-**Allowed imports:** Foundation, PDFEngineAPI, VaultAPI, InferenceAPI (see `Scripts/import-allowlist.txt` — the enforced source of truth). Tests may also import XCTest.
+**Allowed imports:** Foundation, PDFEngineAPI, VaultAPI, InferenceAPI, `Compression` (system framework, ADR-017 — DOCX zip decompression only) — see `Scripts/import-allowlist.txt` — the enforced source of truth. Tests may also import XCTest.
 
 **Verify:** `Scripts/verify.sh IngestionPipeline` (build + tests + boundary lint for this package only).
 
@@ -17,7 +17,7 @@
 
 **Adding an extractor stage (P2-09/P2-10, read before starting):** conform to `ExtractorStage` (`Graph/ExtractorStage.swift`) — `name` for provenance/error-key attribution, `supports(_:)` to opt into the `DocumentType`s you handle, `extract(from:classification:)` returning `[ExtractionCandidate]`. Throw `IngestionError` (or let a real error surface — the runner wraps anything else as `.engine`) rather than returning an empty array on failure, so the caller can tell "found nothing" from "extractor broke." Register the instance in the `extractors:` array passed to `IngestionPipelineRunner.init` at the composition root — no change to this package needed.
 
-**Normalizer scope (P2-08):** PDF (via `PageRenderer` rasterization + optional `TextEditor` text-layer text), TXT, JPEG/PNG/HEIC/TIFF (passthrough — `ImageIO` on the `InferenceHost` side decodes them; deskew/contrast already happens there, P1-13). **DOCX/RTF are detected but throw `.unsupportedFormat`** — `NSAttributedString`'s document-reading initializers for those types are AppKit-only, and AppKit isn't in this package's allowlist (`IngestionSession`'s is). Needs either an ADR adding AppKit here or a hand-rolled Foundation-only parser — not decided unilaterally; see `Normalizer.swift`'s doc comment and the task's Handoff.
+**Normalizer scope (P2-08):** PDF (via `PageRenderer` rasterization + optional `TextEditor` text-layer text), TXT, JPEG/PNG/HEIC/TIFF (passthrough — `ImageIO` on the `InferenceHost` side decodes them; deskew/contrast already happens there, P1-13), DOCX (`DocxTextExtractor.swift`: hand-rolled bounded ZIP local-file-header walker + `compression_decode_buffer` inflate + `XMLParser` over `word/document.xml`'s `<w:t>` runs — ADR-017, `Compression` framework not AppKit), RTF (`RtfTextExtractor.swift`: hand-rolled Foundation-only control-word tokenizer, no new import needed). Both throw typed `.corruptInput` on malformed/truncated input, never crash.
 
 **`PNGEncoder`:** hand-rolled RGBA8->PNG (`Normalize/PNGEncoder.swift`) so a `RenderedTile`'s raw pixels can become `InferenceAPI`'s `imageData: Data` without importing ImageIO/CoreGraphics (same "no CoreGraphics" constraint `PDFEngineAPI.Geometry` documents). Uses uncompressed/stored DEFLATE blocks — spec-valid, verified structurally in `PNGEncoderTests` (no ImageIO available here to round-trip-decode against).
 
