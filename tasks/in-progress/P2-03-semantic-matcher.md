@@ -1,5 +1,8 @@
 # P2-03 — SemanticMatcher: Full Matching Ladder
 
+**Owner:** claude-agent · **Branch:** task/P2-03-semantic-matcher · **Claimed:** 1f4498a106d99447a938ba6bb52b23ad3fcb90d1
+
+
 **Epic:** E12 · **Primary package:** `Packages/AutofillEngine` · **Complexity:** L · **Priority:** Critical
 
 ## Goal
