@@ -2,23 +2,28 @@ import Foundation
 import InferenceAPI
 import VaultAPI
 
-/// Which matching-ladder rung produced a candidate (ARCHITECTURE.md §7.1;
-/// the LLM rung is added in P2-03). The review UI depends on this
-/// attribution being present on every candidate (CLAUDE.md §19).
+/// Which matching-ladder rung produced a candidate (ARCHITECTURE.md §7.1).
+/// The review UI depends on this attribution being present on every
+/// candidate (CLAUDE.md §19).
 public enum MatchSource: String, Sendable, Equatable {
     case dictionary
     case embedding
+    case llm
 }
 
 public struct MatchCandidate: Sendable, Equatable {
     public let vaultPath: FieldPath
     public let score: Double
     public let source: MatchSource
+    /// Calibrated high/medium/low tier, derived from `score`/`source` — see
+    /// `ConfidenceCalibration` and docs/specs/matching-confidence.md.
+    public let confidence: MatchConfidence
 
     public init(vaultPath: FieldPath, score: Double, source: MatchSource) {
         self.vaultPath = vaultPath
         self.score = score
         self.source = source
+        self.confidence = ConfidenceCalibration.calibrate(score: score, source: source)
     }
 }
 
@@ -36,19 +41,30 @@ public actor AliasMatcher {
         self.inferenceClient = inferenceClient
     }
 
-    /// Returns the single dictionary hit if the normalized label matches
+    /// Returns the single dictionary hit if the normalized `label` matches
     /// exactly; otherwise up to `limit` embedding candidates ranked by
     /// cosine similarity to the dictionary's own canonical path strings
     /// (the only vault-path aliases this rung has anything to compare
     /// against without a live `VaultClient` lookup).
-    public func match(label: String, limit: Int = 5) async throws -> [MatchCandidate] {
+    ///
+    /// `queryText` (P2-03) lets a caller enrich *only* the embedding
+    /// rung's query with page-text context (tooltip/nearby text/section
+    /// headers assembled by `ContextAssembler`) without disturbing the
+    /// dictionary rung's exact-match precision — dictionary lookup always
+    /// uses `label` alone, since a context-diluted string would
+    /// legitimately miss a curated alias that the bare label would hit
+    /// (that'd be a regression against the P1-14 baseline, not an
+    /// improvement). Defaults to `label` itself, so existing callers are
+    /// unaffected.
+    public func match(label: String, queryText: String? = nil, limit: Int = 5) async throws -> [MatchCandidate] {
         let normalized = LabelNormalizer.normalize(label)
         if let path = dictionary.lookup(normalizedLabel: normalized) {
             return [MatchCandidate(vaultPath: path, score: 1.0, source: .dictionary)]
         }
 
+        let normalizedQuery = LabelNormalizer.normalize(queryText ?? label)
         let aliasEmbeddings = try await loadAliasEmbeddingsIfNeeded()
-        guard let queryVector = try await inferenceClient.embed(EmbedRequest(texts: [normalized])).vectors.first else {
+        guard let queryVector = try await inferenceClient.embed(EmbedRequest(texts: [normalizedQuery])).vectors.first else {
             return []
         }
         return aliasEmbeddings
