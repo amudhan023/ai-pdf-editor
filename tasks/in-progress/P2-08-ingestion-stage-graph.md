@@ -1,5 +1,8 @@
 # P2-08 — Ingestion Pipeline: Stage Graph, Normalizer & Classifier
 
+**Owner:** claude-agent · **Branch:** task/P2-08-ingestion-stage-graph · **Claimed:** 60b4cb8abb2a614cfe56f31eea81b23df88646c1
+
+
 **Epic:** E11 · **Primary package:** `Packages/IngestionPipeline` · **Complexity:** L · **Priority:** High
 
 ## Goal
