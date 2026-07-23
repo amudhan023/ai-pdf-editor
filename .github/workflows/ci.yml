@@ -86,8 +86,23 @@ jobs:
         package: ${{ fromJson(needs.detect-changes.outputs.packages) }}
     steps:
       - uses: actions/checkout@v4
+
+      # LFS content (Fixtures/**, ThirdParty/pdfium/prebuilt/**) is ~18MB but
+      # `checkout`'s `lfs: true` re-fetches it from GitHub's LFS endpoint on
+      # every single job, every single run - across this workflow's job count
+      # and run volume that blows through the free LFS bandwidth quota
+      # (distinct from the 1GB storage quota, which this repo is nowhere
+      # near). Caching the smudged .git/lfs objects keyed on the tracked
+      # files' pointer content means only the first job to see a given LFS
+      # content set pays the network fetch; everything after restores locally.
+      - name: Restore Git LFS cache
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ hashFiles('Fixtures/**/*.pdf', 'Fixtures/**/*.png', 'Fixtures/**/*.jpg', 'Fixtures/**/*.jpeg', 'Fixtures/**/*.heic', 'Fixtures/**/*.docx', 'ThirdParty/pdfium/prebuilt/**') }}
+
+      - name: Git LFS pull
+        run: git lfs pull
 
       - name: Confirm full Xcode toolchain
         run: |
@@ -123,8 +138,16 @@ jobs:
         package: ${{ fromJson(needs.detect-changes.outputs.packages) }}
     steps:
       - uses: actions/checkout@v4
+
+      # See `verify` job above for why LFS is cached rather than fetched via checkout's `lfs: true`.
+      - name: Restore Git LFS cache
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ hashFiles('Fixtures/**/*.pdf', 'Fixtures/**/*.png', 'Fixtures/**/*.jpg', 'Fixtures/**/*.jpeg', 'Fixtures/**/*.heic', 'Fixtures/**/*.docx', 'ThirdParty/pdfium/prebuilt/**') }}
+
+      - name: Git LFS pull
+        run: git lfs pull
 
       - name: Confirm full Xcode toolchain
         run: |
@@ -144,8 +167,16 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      # See `verify` job above for why LFS is cached rather than fetched via checkout's `lfs: true`.
+      - name: Restore Git LFS cache
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ hashFiles('Fixtures/**/*.pdf', 'Fixtures/**/*.png', 'Fixtures/**/*.jpg', 'Fixtures/**/*.jpeg', 'Fixtures/**/*.heic', 'Fixtures/**/*.docx', 'ThirdParty/pdfium/prebuilt/**') }}
+
+      - name: Git LFS pull
+        run: git lfs pull
 
       - name: Confirm full Xcode toolchain
         run: |
@@ -175,8 +206,16 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      # See `verify` job above for why LFS is cached rather than fetched via checkout's `lfs: true`.
+      - name: Restore Git LFS cache
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ hashFiles('Fixtures/**/*.pdf', 'Fixtures/**/*.png', 'Fixtures/**/*.jpg', 'Fixtures/**/*.jpeg', 'Fixtures/**/*.heic', 'Fixtures/**/*.docx', 'ThirdParty/pdfium/prebuilt/**') }}
+
+      - name: Git LFS pull
+        run: git lfs pull
 
       - name: Confirm full Xcode toolchain
         run: |
@@ -193,8 +232,16 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      # See `verify` job above for why LFS is cached rather than fetched via checkout's `lfs: true`.
+      - name: Restore Git LFS cache
+        uses: actions/cache@v4
         with:
-          lfs: true
+          path: .git/lfs
+          key: lfs-${{ hashFiles('Fixtures/**/*.pdf', 'Fixtures/**/*.png', 'Fixtures/**/*.jpg', 'Fixtures/**/*.jpeg', 'Fixtures/**/*.heic', 'Fixtures/**/*.docx', 'ThirdParty/pdfium/prebuilt/**') }}
+
+      - name: Git LFS pull
+        run: git lfs pull
 
       - name: SwiftLint
         run: |
