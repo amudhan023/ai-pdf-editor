@@ -1,5 +1,9 @@
 # P3-13 — Export Compliance Confirmation (SQLCipher Crypto Backend + App Store Connect Classification)
 
+**Owner:** claude-agent · **Branch:** task/P3-13-export-compliance
+
+**Status:** partial — technical verification + doc done (see `docs/specs/export-compliance.md`); `App/Info.plist` edit and the actual App Store Connect questionnaire submission are explicitly left for a human (Info.plist changes need an ADR + human sign-off per root `CLAUDE.md` §7.7, and ASC submission needs account access this agent doesn't have). Do not move to `done/` until those two remaining steps are closed out.
+
 **Epic:** E16 · **Primary package:** `Packages/VaultStore` (+ `App/` Info.plist) · **Complexity:** S · **Priority:** High
 
 ## Goal
