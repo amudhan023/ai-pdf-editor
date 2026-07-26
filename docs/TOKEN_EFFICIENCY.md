@@ -44,7 +44,7 @@ Load context as a ladder; stop climbing the moment you can act.
 
 - **Search before read, always:** grep for the symbol/behavior, then read only hits — and read *ranges around hits*, not whole files.
 - **API-first rule:** to understand another package, read its `*API` package (small, stable, documented) — never its implementation sources. If the API package doesn't answer the question, that's a doc defect to file, still not a license to read implementations.
-- Never read: generated code (`Schemas/` output), `Fixtures/` payloads (read manifests instead), `done/` task files (read `phase-<n>-lessons.md` instead), lockfiles, third-party sources.
+- Never read: generated code (`Schemas/` output), `Fixtures/` payloads (read manifests instead), `done/` task files (read `phase-<n>-lessons.md` instead — kept current by the `distill-lessons` skill at Step 7, surfaced for your task by `orient-history` at Step 1; see `docs/AGENT_LOOP.md` Steps 1/7), lockfiles, third-party sources.
 - Re-reading a file you just edited to "verify" is waste — the edit tool fails loudly; trust it.
 
 ## 4. Targeted Testing

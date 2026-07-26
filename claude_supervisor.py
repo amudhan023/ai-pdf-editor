@@ -77,11 +77,20 @@ follow AGENT_LOOP.md's escalation rules rather than silently picking another.
 
 RULES:
 - Branch task/<ID>-<slug> from main per the claim's Branch header.
+- Immediately after branching, invoke the `orient-history` skill for the
+  task's Primary package before reading any source: it surfaces prior
+  findings (phase lessons, open escalations, okf status) so you don't
+  re-derive a conclusion an earlier session already paid for. Then continue
+  AGENT_LOOP.md Step 1 (ORIENT) as normal.
 - Work ONLY within the primary package defined by the task.
 - Do NOT expand scope across packages unless explicitly marked [INTEGRATION]
 - Run verify.sh <PackageName>
 - Ensure CI readiness
 - Fix issues until passing
+- During Step 7 (DOCUMENT), invoke the `distill-lessons` skill to append a
+  short entry to the task's phase lessons file
+  (tasks/done/phase-<n>-lessons.md) from the Journal - before Step 8d moves
+  the task file itself into tasks/done/.
 - Update task state files
 - Exit after completing ONE task only
 
