@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "vault_paths": ["identity.legal_name.first", "identity.legal_name.last"],
+      "labels": {
+        "en": ["full name", "name", "your name", "full legal name", "legal name"]
+      }
+    },
+    {
+      "vault_paths": [
+        "contact.address.line1",
+        "contact.address.line2",
+        "contact.address.city",
+        "contact.address.state",
+        "contact.address.postal_code"
+      ],
+      "labels": {
+        "en": ["mailing address", "full address", "complete address", "home address"]
+      }
+    }
+  ]
+}
