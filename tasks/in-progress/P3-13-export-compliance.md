@@ -1,5 +1,9 @@
 # P3-13 — Export Compliance Confirmation (SQLCipher Crypto Backend + App Store Connect Classification)
 
+**Owner:** claude-agent · **Branch:** task/P3-13-export-compliance
+
+**Status:** partial — technical verification, doc, and `App/Info.plist` edit done. Repo owner reviewed the `docs/specs/export-compliance.md` recommendation on 2026-07-26 and signed off on `ITSAppUsesNonExemptEncryption = NO` per root `CLAUDE.md` §7.7 (human sign-off for Info.plist changes). Remaining: the actual App Store Connect export-compliance questionnaire submission still needs the account holder — not something a repo edit can close out. Do not move to `done/` until that submission happens; this task's repo-side work is otherwise complete.
+
 **Epic:** E16 · **Primary package:** `Packages/VaultStore` (+ `App/` Info.plist) · **Complexity:** S · **Priority:** High
 
 ## Goal
