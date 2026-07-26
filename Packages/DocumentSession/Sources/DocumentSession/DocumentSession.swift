@@ -40,10 +40,16 @@ public actor DocumentSession {
     private let outlineReader: (any OutlineReader)?
     private let textEditor: (any TextEditor)?
     private let annotationStore: (any AnnotationStore)?
+    private let pageOrganizer: (any PageOrganizer)?
     private let atomicSaver: AtomicSaver?
     private var handle: DocumentHandle?
     private var currentURL: URL?
     private var annotationUndo = AnnotationUndoStack()
+    private var pageOperationUndo = PageOperationUndoStack()
+    /// Handles opened by `insertPage(fromFile:...)`/`mergeDocument(fromFile:)`,
+    /// kept alive so a later `redo()` can still reference them — see those
+    /// methods' doc comments. Closed alongside the main document in `close()`.
+    private var importSourceHandles: [DocumentHandle] = []
 
     public init(
         lifecycle: any DocumentLifecycle,
@@ -51,6 +57,7 @@ public actor DocumentSession {
         outlineReader: (any OutlineReader)? = nil,
         textEditor: (any TextEditor)? = nil,
         annotationStore: (any AnnotationStore)? = nil,
+        pageOrganizer: (any PageOrganizer)? = nil,
         atomicSaver: AtomicSaver? = nil
     ) {
         self.lifecycle = lifecycle
@@ -58,6 +65,7 @@ public actor DocumentSession {
         self.outlineReader = outlineReader
         self.textEditor = textEditor
         self.annotationStore = annotationStore
+        self.pageOrganizer = pageOrganizer
         self.atomicSaver = atomicSaver
     }
 
@@ -86,6 +94,8 @@ public actor DocumentSession {
         }
         self.handle = nil
         currentURL = nil
+        for source in importSourceHandles { try? await lifecycle.close(source) }
+        importSourceHandles.removeAll()
     }
 
     /// Serializes the open document's current (mutated) state through the
@@ -221,5 +231,130 @@ public actor DocumentSession {
     private func requireAnnotationStore() throws -> any AnnotationStore {
         guard let annotationStore else { throw DocumentSessionError.engine(.unsupportedFeature("annotationsNotWired")) }
         return annotationStore
+    }
+
+    // MARK: - Page management (P1-06)
+
+    public var canUndoPageOperation: Bool { pageOperationUndo.canUndo }
+    public var canRedoPageOperation: Bool { pageOperationUndo.canRedo }
+
+    /// Moves the page at `from` to `to` (same clamping convention as
+    /// `PageOrganizer.apply(.reorder)`: `to` is an index into the array
+    /// *after* the moved page is removed). Undoable.
+    public func reorderPage(from: PageIndex, to: PageIndex) async throws {
+        let organizer = try requirePageOrganizer()
+        try await organizer.apply(.reorder(from: from, to: to), to: openHandle())
+        pageOperationUndo.record(.reordered(from: from, to: to))
+    }
+
+    /// Undoable.
+    public func rotatePage(_ page: PageIndex, by rotation: PageRotation) async throws {
+        let organizer = try requirePageOrganizer()
+        let previous = try await renderer.metadata(of: openHandle(), page: page).rotation
+        try await organizer.apply(.rotate(page, by: rotation), to: openHandle())
+        pageOperationUndo.record(.rotated(page, from: previous, to: rotation))
+    }
+
+    /// Duplicates the currently open document's own page `sourcePage`,
+    /// inserting the copy at `at`. Undoable.
+    public func duplicatePage(_ sourcePage: PageIndex, at: PageIndex) async throws {
+        let organizer = try requirePageOrganizer()
+        let handle = try openHandle()
+        try await organizer.apply(.insert(from: handle, sourcePage: sourcePage, at: at), to: handle)
+        pageOperationUndo.record(.inserted(from: handle, sourcePage: sourcePage, at: at))
+    }
+
+    /// Imports one page from an external file (not the currently open
+    /// document) at `at` — the "insert from file" flow. Opens `fileURL`
+    /// through the same engine instance and keeps that handle open for the
+    /// rest of this session (closed in `close()`, alongside the main
+    /// document) rather than closing it right after the import: the
+    /// recorded undo `Change` references the source `DocumentHandle`
+    /// directly, and `redo()` re-runs the same `.insert` against it — a
+    /// closed handle would make redo fail with `.documentNotFound`.
+    /// Undoable.
+    public func insertPage(fromFile fileURL: URL, sourcePage: PageIndex, at: PageIndex) async throws {
+        let organizer = try requirePageOrganizer()
+        let handle = try openHandle()
+        let source = try await openImportSource(fileURL)
+        try await organizer.apply(.insert(from: source, sourcePage: sourcePage, at: at), to: handle)
+        pageOperationUndo.record(.inserted(from: source, sourcePage: sourcePage, at: at))
+    }
+
+    /// Appends every page of `fileURL` to the end of the currently open
+    /// document, in source order — the "merge" composition, built entirely
+    /// from repeated `.insert` (no dedicated engine op needed, matching
+    /// `PageOrganizer.swift`'s own doc comment on how merge/duplicate/
+    /// extract compose). Each imported page is individually undoable via
+    /// the same `undoPageOperation()` this method's siblings use; there is
+    /// no single combined "undo the whole merge" step — undoing N times
+    /// undoes N imports, in reverse order, same as any other multi-step
+    /// action on this stack. Same source-handle-stays-open rationale as
+    /// `insertPage(fromFile:sourcePage:at:)`.
+    public func mergeDocument(fromFile fileURL: URL) async throws {
+        let organizer = try requirePageOrganizer()
+        let handle = try openHandle()
+        let source = try await openImportSource(fileURL)
+
+        let sourcePageCount: Int
+        do {
+            sourcePageCount = try await renderer.pageCount(of: source)
+        } catch let error as PDFEngineError {
+            throw DocumentSessionError.engine(error)
+        }
+        for i in 0..<sourcePageCount {
+            let destCount = try await renderer.pageCount(of: handle)
+            let operation = PageOperation.insert(from: source, sourcePage: PageIndex(i), at: PageIndex(destCount))
+            try await organizer.apply(operation, to: handle)
+            pageOperationUndo.record(.inserted(from: source, sourcePage: PageIndex(i), at: PageIndex(destCount)))
+        }
+    }
+
+    /// Opens `fileURL` as an import source and tracks the handle for
+    /// cleanup in `close()`. Every call opens a fresh handle (even for a
+    /// repeated `fileURL`) rather than caching by URL — simpler, and this
+    /// package never learns whether the file changed between calls.
+    private func openImportSource(_ fileURL: URL) async throws -> DocumentHandle {
+        do {
+            let source = try await lifecycle.open(url: fileURL)
+            importSourceHandles.append(source)
+            return source
+        } catch let error as PDFEngineError {
+            throw DocumentSessionError.engine(error)
+        }
+    }
+
+    /// Deletes `page`. **Not undoable in this version** — see
+    /// `PageOperationUndoStack`'s doc comment for why (no capability
+    /// reachable from this package creates the "trash" document a real
+    /// content-preserving delete-undo would need). Callers should surface
+    /// a destructive-action confirmation before calling this, same as any
+    /// non-undoable delete. Also clears any existing undo/redo history:
+    /// a delete shifts every later page's index, which can silently
+    /// invalidate an already-recorded operation's indices (see
+    /// `PageOperationUndoStack.invalidateHistory()`).
+    public func deletePage(_ page: PageIndex) async throws {
+        let organizer = try requirePageOrganizer()
+        try await organizer.apply(.delete(page), to: openHandle())
+        pageOperationUndo.invalidateHistory()
+    }
+
+    @discardableResult
+    public func undoPageOperation() async throws -> Bool {
+        guard let operation = pageOperationUndo.undo() else { return false }
+        try await requirePageOrganizer().apply(operation, to: openHandle())
+        return true
+    }
+
+    @discardableResult
+    public func redoPageOperation() async throws -> Bool {
+        guard let operation = pageOperationUndo.redo() else { return false }
+        try await requirePageOrganizer().apply(operation, to: openHandle())
+        return true
+    }
+
+    private func requirePageOrganizer() throws -> any PageOrganizer {
+        guard let pageOrganizer else { throw DocumentSessionError.engine(.unsupportedFeature("pageOrganizerNotWired")) }
+        return pageOrganizer
     }
 }
