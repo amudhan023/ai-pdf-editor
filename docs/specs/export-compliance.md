@@ -29,13 +29,12 @@ Because the app's only cryptographic use is:
 
 this falls within Apple's **standard, exempt** encryption category (App Store Connect: "Does your app use encryption?" → Yes, but qualifies for the exemption for standard OS-supplied cryptography used only for authentication/data protection — no proprietary or non-standard algorithm, no encryption of data in transit to a server per Constitution/§7.1 no-network rule).
 
-**Recommendation:** `App/Info.plist` → `ITSAppUsesNonExemptEncryption` = `NO` (the standard-exemption path means no separate self-classification submission is required at all under Apple's rules; `NO` is the correct declaration when the only encryption present is exempt per se, distinct from `YES` + self-classification which is for encryption that requires annual self-classification reporting but is still exempt from a CCATS/export license).
+**Applied:** `App/Info.plist` → `ITSAppUsesNonExemptEncryption` = `NO` (the standard-exemption path means no separate self-classification submission is required at all under Apple's rules; `NO` is the correct declaration when the only encryption present is exempt per se, distinct from `YES` + self-classification which is for encryption that requires annual self-classification reporting but is still exempt from a CCATS/export license). Signed off by the repo owner on 2026-07-26 per root `CLAUDE.md` §7.7.
 
 ## What this doc does NOT do
 
-Per root `CLAUDE.md` §7.7 (new entitlements/Info.plist changes need an ADR + human sign-off) and the fact that the App Store Connect compliance questionnaire is submitted through an external account this session has no access to:
+The App Store Connect compliance questionnaire is submitted through an external account this session has no access to:
 
-- **Not done:** editing `App/Info.plist` to set `ITSAppUsesNonExemptEncryption`. The recommended value is documented above for a human (or a follow-up task with sign-off) to apply.
 - **Not done:** completing the actual App Store Connect export-compliance questionnaire — requires the App Store Connect account holder.
 - **Not done:** the PRD Risk R8 pre-GA legal review sign-off — this doc is evidence for that review, not a substitute for it.
 

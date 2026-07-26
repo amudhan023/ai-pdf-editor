@@ -2,7 +2,7 @@
 
 **Owner:** claude-agent · **Branch:** task/P3-13-export-compliance
 
-**Status:** partial — technical verification + doc done (see `docs/specs/export-compliance.md`); `App/Info.plist` edit and the actual App Store Connect questionnaire submission are explicitly left for a human (Info.plist changes need an ADR + human sign-off per root `CLAUDE.md` §7.7, and ASC submission needs account access this agent doesn't have). Do not move to `done/` until those two remaining steps are closed out.
+**Status:** partial — technical verification, doc, and `App/Info.plist` edit done. Repo owner reviewed the `docs/specs/export-compliance.md` recommendation on 2026-07-26 and signed off on `ITSAppUsesNonExemptEncryption = NO` per root `CLAUDE.md` §7.7 (human sign-off for Info.plist changes). Remaining: the actual App Store Connect export-compliance questionnaire submission still needs the account holder — not something a repo edit can close out. Do not move to `done/` until that submission happens; this task's repo-side work is otherwise complete.
 
 **Epic:** E16 · **Primary package:** `Packages/VaultStore` (+ `App/` Info.plist) · **Complexity:** S · **Priority:** High
 
