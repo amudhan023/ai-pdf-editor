@@ -1,6 +1,6 @@
 # E-013 — P3-12 blocked: no `.entitlements` files or app-bundle sandboxing exist yet to audit
 
-**Raised by:** attempted claim of P3-12 · **Severity:** blocks P3-12 only · **Status: OPEN**
+**Raised by:** attempted claim of P3-12 · **Severity:** blocks P3-12 only · **Status: RESOLVED (2026-07-27)**
 
 ## Evidence
 
@@ -20,3 +20,11 @@ Either: (a) treat "author the initial minimal entitlements + XPC-service bundle 
 ## Interim decision
 
 P3-12 stays in `tasks/backlog/`, unclaimed. No other backlog task in phase-2/phase-3 has both its dependencies satisfied and a non-conflicting primary package right now (checked against `tasks/in-progress/`: P1-06/DocEngineHost+DocumentSession, P2-03/AutofillEngine, P2-08/IngestionPipeline all claimed).
+
+## Decision (repo owner, 2026-07-27)
+
+Option **(b)**: defer P3-12 until `P3-06` (`tasks/backlog/phase-3-beta-ga/P3-06-direct-distribution.md`, E16) lands. P3-06 is what actually codesigns all four executables (app + 3 XPC services) with Hardened Runtime, embeds the services as bundled XPC targets, and handles the MAS-variant sandbox-profile differences — i.e. it is what first produces a real `.entitlements` baseline. P3-12 then becomes the review/minimization pass its own wording already assumes ("review/tighten, no new capabilities added"), instead of a task that would have to author the baseline itself — which would be new entitlements requiring its own ADR + §7.7 sign-off, contradicting P3-12's stated scope.
+
+Rejected option (a) (author a standalone entitlements/bundle-embedding prerequisite task now): would just be P3-06's work done early and out of sequence, under a different task name, still gated by the same §7.7 sign-off — no benefit over waiting for P3-06 to do it as part of its own scope.
+
+P3-12's own task file now records this dependency (`tasks/backlog/phase-3-beta-ga/P3-12-xpc-entitlement-audit.md`) so no future session re-attempts claiming it before P3-06 merges.
