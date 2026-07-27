@@ -16,6 +16,7 @@ Guideline 2.4.5(v) governs exactly this project's shape — a sandboxed main app
 
 ## Dependencies
 - P0-06 (DocEngine.xpc exists), P1-08 (Vault.xpc exists), P1-12 (Inference.xpc exists) — this task audits real, built services, not a plan.
+- **P3-06 (direct-distribution/release pipeline) — hard blocker, added 2026-07-27 per [E-013](../../escalations/E-013-p3-12-no-entitlements-baseline-yet.md).** No `.entitlements` files, app-bundle sandboxing, or XPC-service bundle embedding exist in this repo yet; P3-06 is what first produces them (codesigns all 4 executables with Hardened Runtime, embeds `Services/*` as bundled XPC targets, handles the MAS sandbox-profile variant). Do not claim this task before P3-06 has merged — there is nothing yet to audit.
 
 ## Files Likely Affected
 - `Services/DocEngineService/DocEngineService.entitlements`, `Services/InferenceService/InferenceService.entitlements`, `Services/VaultService/VaultService.entitlements`, `App/App.entitlements` (review/tighten, no new capabilities added by this task)
